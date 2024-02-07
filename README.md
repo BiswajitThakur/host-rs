@@ -9,8 +9,8 @@ Block Website, Ads, Social, Porn, Fakenews, Gambling, Spam sites and website red
 > Work in progress
 
 ## Features of Host-RS
-- [ ] Block websites
-- [ ] Unblock websites
+- [x] Block websites
+- [x] Unblock websites
 - [ ] Block Ads
 - [ ] Unblock ads
 - [ ] Block all porn sites

@@ -24,3 +24,4 @@ serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
 ratatui = "0.26.0"
 crossterm = "0.27.0"
+clap = { version = "4.4.18", features = ["cargo", "derive"] }
