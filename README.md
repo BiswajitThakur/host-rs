@@ -11,13 +11,14 @@ Block Website, Ads, Social, Porn, Fakenews, Gambling, Spam sites and website red
 ## Features of Host-RS
 - [x] Block websites
 - [x] Unblock websites
-- [ ] Block Ads
-- [ ] Unblock ads
-- [ ] Block all porn sites
-- [ ] Unblock porn websites
-- [ ] Block fakenews websites
-- [ ] Unblock fakenews websites
-- [ ] Block all social websites
-- [ ] Unlock social websites
-- [ ] Block gambling websites
-- [ ] Unblock gambling websites
+- [ ] Redirect website
+- [x] Block Ads
+- [x] Unblock ads
+- [x] Block all porn sites
+- [x] Unblock porn websites
+- [x] Block fakenews websites
+- [x] Unblock fakenews websites
+- [x] Block all social websites
+- [x] Unlock social websites
+- [x] Block gambling websites
+- [x] Unblock gambling websites

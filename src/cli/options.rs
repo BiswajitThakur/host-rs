@@ -93,7 +93,7 @@ pub fn init() -> clap::ArgMatches {
         .arg(
             Arg::new("update-sources")
                 .long("update-sources")
-                .help("Update sources if available.")
+                .help("Update host sources if available.")
                 .action(ArgAction::SetTrue),
         )
         .get_matches()
