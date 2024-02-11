@@ -1,29 +1,10 @@
-use std::collections::HashMap;
-use std::io::Read;
+use std::collections::{HashMap, HashSet};
+use std::fs::{File, OpenOptions};
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
-use std::{
-    collections::HashSet,
-    fs::{File, OpenOptions},
-    io::{self, Write},
-};
 
 use regex::Regex;
 
-#[allow(dead_code)]
-pub fn list(path: &PathBuf, data: &HashSet<String>) -> Result<(), io::Error> {
-    let mut f = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(path)?;
-    let mut v: Vec<&str> = data.iter().map(|i| i.as_str()).collect();
-    v.sort();
-    f.write_all(v.join("\n").as_bytes())?;
-    f.flush()?;
-    Ok(())
-}
-
-#[allow(dead_code)]
 pub fn host(path: &PathBuf, data: HashSet<&str>) -> Result<(), io::Error> {
     let cap: usize = data.len();
     let mut v1: Vec<&str> = Vec::with_capacity(cap + 2);
@@ -56,8 +37,40 @@ pub fn host(path: &PathBuf, data: HashSet<&str>) -> Result<(), io::Error> {
     Ok(())
 }
 
-pub fn redirect(path: &PathBuf, data: HashMap<String, String>) -> Result<(), io::Error> {
-
+pub fn redirect(path: &PathBuf, data: &HashMap<String, String>) -> io::Result<()> {
+    let mut file: File = File::open(path)?;
+    let mut contents: String = String::new();
+    file.read_to_string(&mut contents)?;
+    let mut f: File = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(path)?;
+    let cap = data.len();
+    let mut tmp = Vec::with_capacity(cap);
+    for (key, val) in data {
+        tmp.push(format!("{val} {key}"));
+    };
+    tmp.sort();
+    let mut d = Vec::with_capacity(cap + 2);
+    d.push("\n# BT-redirect-start #".to_string());
+    for i in tmp {
+        d.push(i);
+    }
+    d.push("# BT-redirect-end #\n".to_string());
+    let con: String = d.join("\n");
+    let reg: Regex =
+        Regex::new(r"(?s)\s*#+\s*BT\-redirect\-start\s*#*(.*?)\#\s*BT\-redirect\-end\s*#*\s*\n?")
+            .unwrap();
+    if !reg.is_match(&contents) {
+        let new_data = format!("{}\n{}\n", contents, con);
+        f.write_all(new_data.as_bytes())?;
+        f.flush()?;
+        return Ok(());
+    };
+    let new_data = reg.replace(&contents, con);
+    f.write_all(new_data.as_bytes())?;
+    f.flush()?;
     Ok(())
 }
 
@@ -66,52 +79,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_list() {
-        let input: HashSet<String> =
-            HashSet::from(["example.com".to_owned(), "abcxyz.com".to_owned()]);
-        let path = &PathBuf::from("./test_files/w0");
-        let got = list(path, &input);
+    fn test_host() {
+        let path = &PathBuf::from("./test_files/wh");
+        let input: HashSet<&str> =
+            HashSet::from(["example.com", "hello.in", "gooooogle.com", "abcxyz.com"]);
+        let got = host(path, input);
         assert!(got.is_ok());
-        let mut file = File::open(path).unwrap();
-        let mut got = String::new();
-        file.read_to_string(&mut got).unwrap();
-        let want = String::from(
-            "abcxyz.com
-example.com",
-        );
-        assert_eq!(got, want);
-
-        let input: HashSet<String> = HashSet::from([
-            "example.com".to_owned(),
-            "hello.in".to_owned(),
-            "gooooogle.com".to_owned(),
-            "abcxyz.com".to_owned(),
-        ]);
-        let path = &PathBuf::from("./test_files/w0");
-        let got = list(path, &input);
-        assert!(got.is_ok());
-        let mut file = File::open(path).unwrap();
-        let mut got = String::new();
-        file.read_to_string(&mut got).unwrap();
-        let want = String::from(
-            "abcxyz.com
-example.com
-gooooogle.com
-hello.in",
-        );
-        assert_eq!(got, want);
     }
 
     #[test]
-    fn test_host() {
+    fn test_redirect() {
         let path = &PathBuf::from("./test_files/wh");
-        let input: HashSet<&str> = HashSet::from([
-            "example.com",
-            "hello.in",
-            "gooooogle.com",
-            "abcxyz.com",
+        let input = HashMap::from([
+            ("localbara.com".into(), "127.0.0.1".into()),
+            ("bal6era.com".into(), "lawrachoda.com".into()),
+            ("google.com".into(), "120.88.99.1".into()),
+            ("globallawra.xyz".into(), "0.0.0.0".into()),
+            ("99.0.0.100".into(), "khanki.in".into()),
+            ("khankichoda.com".into(), "lawrachoda.com".into()),
         ]);
-        let got = host(path, input);
+        let got = redirect(path, &input);
         assert!(got.is_ok());
     }
 }

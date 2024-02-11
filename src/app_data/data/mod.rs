@@ -39,7 +39,6 @@ pub struct Data {
     pub host_path: PathBuf,
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn get_block_list(&self) -> Result<HashSet<String>, Box<dyn Error>> {
         Ok(my_csv::read_list(&self.block_path)?)
@@ -49,7 +48,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn get_allow_list(&self) -> Result<HashSet<String>, Box<dyn Error>> {
         Ok(my_csv::read_list(&self.allow_path)?)
@@ -59,7 +57,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn set_ads_list(&self, v: &HashSet<String>) -> Result<(), Box<dyn Error>> {
         Ok(my_csv::write_list(&self.hosts.ads.path, v)?)
@@ -69,7 +66,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn set_redirect_list(&self, vals: &HashMap<String, String>) -> Result<(), Box<dyn Error>> {
         Ok(my_csv::write_redirect(&self.redirect_path, vals)?)
@@ -79,7 +75,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn set_porn_list(&self, v: &HashSet<String>) -> Result<(), Box<dyn Error>> {
         Ok(my_csv::write_list(&self.hosts.porn.path, v)?)
@@ -89,7 +84,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn set_fakenews_list(&self, v: &HashSet<String>) -> Result<(), Box<dyn Error>> {
         Ok(my_csv::write_list(&self.hosts.fakenews.path, v)?)
@@ -99,7 +93,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn set_social_list(&self, v: &HashSet<String>) -> Result<(), Box<dyn Error>> {
         Ok(my_csv::write_list(&self.hosts.social.path, v)?)
@@ -109,7 +102,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn set_gambling_list(&self, v: &HashSet<String>) -> Result<(), Box<dyn Error>> {
         Ok(my_csv::write_list(&self.hosts.gambling.path, v)?)
@@ -120,7 +112,6 @@ impl Data {
 }
 
 
-#[allow(dead_code)]
 impl Data {
     pub fn enable_ads_blocker(&mut self) {
         self.hosts.ads.is_enable = true;
@@ -130,7 +121,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn enable_porn_blocker(&mut self) {
         self.hosts.porn.is_enable = true;
@@ -140,7 +130,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn enable_fakenews_blocker(&mut self) {
         self.hosts.fakenews.is_enable = true;
@@ -150,7 +139,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn enable_social_blocker(&mut self) {
         self.hosts.social.is_enable = true;
@@ -160,7 +148,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn enable_gambling_blocker(&mut self) {
         self.hosts.gambling.is_enable = true;
@@ -170,7 +157,6 @@ impl Data {
     }
 }
 
-#[allow(dead_code)]
 impl Data {
     pub fn flush(&self) -> Result<(), Box<dyn Error>> {
         let mut file: File = File::create(&self.db_path)?;

@@ -69,6 +69,7 @@ impl App {
     pub fn flush(&self) -> Result<(), Box<dyn Error>> {
         let allow_list = &self.host.allow_list;
         let usr_block_list = &self.host.block_list;
+        let redirect_list = &self.host.redirect_list;
         let ads_list = &self.host.ads;
         let porn_list = &self.host.porn;
         let fakenews_list = &self.host.fakenews;
@@ -84,28 +85,33 @@ impl App {
         );
         for i in usr_block_list {
             block_list.insert(i);
-        };
+        }
         for i in ads_list {
             block_list.insert(i);
-        };
+        }
         for i in porn_list {
             block_list.insert(i);
-        };
+        }
         for i in fakenews_list {
             block_list.insert(i);
-        };
+        }
         for i in social_list {
             block_list.insert(i);
-        };
+        }
         for i in gambling_list {
             block_list.insert(i);
-        };
+        }
         for i in allow_list {
             block_list.remove(i.as_str());
-        };
+        }
+        for (key, _) in redirect_list {
+            block_list.remove(key.as_str());
+        }
         crate::host_rw::write::host(&self.data.host_path, block_list)?;
+        crate::host_rw::write::redirect(&self.data.host_path, redirect_list)?;
         self.data.set_allow_list(allow_list)?;
         self.data.set_block_list(usr_block_list)?;
+        self.data.set_redirect_list(redirect_list)?;
         self.data.set_ads_list(ads_list)?;
         self.data.set_porn_list(porn_list)?;
         self.data.set_fakenews_list(fakenews_list)?;
@@ -141,5 +147,25 @@ impl App {
             self.host.redirect_list.remove(i);
         }
         self.host.block_list.extend(val);
+    }
+}
+
+impl App {
+    pub fn add_redirect_list(&mut self, vals: HashMap<String, String>) {
+        for (key, _) in &vals {
+            self.host.allow_list.remove(key);
+            self.host.block_list.remove(key);
+            self.host.ads.remove(key);
+            self.host.fakenews.remove(key);
+            self.host.porn.remove(key);
+            self.host.gambling.remove(key);
+        }
+        self.host.redirect_list.extend(vals);
+    }
+
+    pub fn rm_redirect(&mut self, keys: Vec<String>) {
+        for i in keys {
+            self.host.redirect_list.remove(&i);
+        }
     }
 }

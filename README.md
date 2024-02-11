@@ -27,7 +27,7 @@ sudo make install
 ## Features of Host-RS
 - [x] Block websites
 - [x] Unblock websites
-- [ ] Redirect website
+- [x] Redirect website
 - [x] Block Ads
 - [x] Unblock ads
 - [x] Block all porn sites

@@ -14,7 +14,15 @@ ff02::2 ip6-allrouters
 0.0.0.0 hello.in
 # BT-end #
 185.199.110.133 raw.githubusercontent.com
-
+# BT-redirect-start #
+0.0.0.0 globallawra.xyz
+120.88.99.1 google.com
+127.0.0.1 localbara.com
+khanki.in 99.0.0.100
+lawrachoda.com bal6era.com
+lawrachoda.com khankichoda.com
+# BT-redirect-end #
+#
 0.0.0.0  b.com
 127.0.0.1    c.in
 

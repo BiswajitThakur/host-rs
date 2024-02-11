@@ -8,15 +8,27 @@ ff00::0 ip6-mcastprefix
 ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 
+# BT-redirect-start #
+127.0.0.1 localbara.com
+# 0.0.0.0 example.com
+lawrachoda.com         bal6era.com
+120.88.99.1 google.com  
+
+  0.0.0.0   globallawra.xyz
+khanki.in  99.0.0.100
+
+lawrachoda.com  khankichoda.com
+# BT-redirect-end #
 185.199.110.133 raw.githubusercontent.com
 
 # BT-start #
 0.0.0.0 example.com
-127.0.0.1    google.com # this is comment
+127.0.0.1    google.com  
+127.0.0.1	localhost
 localhost   facebook.com
 #0.0.0.0  comment.com
 0.0.0.0 testing.in
-   127.0.0.1   m.com  ## 0.0.0.0  unknown.url
+   127.0.0.1   m.com
 # BT-end #
 
 
