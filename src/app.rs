@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
+use crate::host_rw::{filter, get};
+
 use super::app_data::{
     data::{self, Data},
     my_csv,
@@ -167,5 +169,184 @@ impl App {
         for i in keys {
             self.host.redirect_list.remove(&i);
         }
+    }
+}
+
+impl App {
+    pub fn clear_all(&mut self) {
+        self.host.allow_list.clear();
+        self.host.block_list.clear();
+        self.host.redirect_list.clear();
+        self.host.ads.clear();
+        self.host.porn.clear();
+        self.host.fakenews.clear();
+        self.host.gambling.clear();
+        self.host.porn.clear();
+    }
+}
+
+impl App {
+    pub async fn block_ads(&mut self) -> Result<(), reqwest::Error> {
+        let mut downloads = Vec::<HashSet<String>>::with_capacity(self.data.hosts.ads.urls.len());
+        let mut capacity: usize = 0;
+        for url in self.data.hosts.ads.urls.iter() {
+            if !url.is_enable {
+                continue;
+            };
+            let tmp: String = get::get(&url.url).await?;
+            let f: HashSet<String> = filter::host(tmp);
+            capacity += f.len();
+            downloads.push(f);
+        }
+        let mut result = HashSet::<String>::with_capacity(capacity);
+        for i in downloads {
+            result.extend(i);
+        }
+        result.remove("127.0.0.1");
+        result.remove("0.0.0.0");
+        if &result == &self.host.ads {
+            return Ok(());
+        };
+        self.host.ads.clear();
+        self.host.ads.extend(result);
+        Ok(())
+    }
+
+    pub fn unblock_ads(&mut self) {
+        self.data.hosts.ads.is_enable = false;
+        self.host.ads.clear();
+    }
+}
+
+
+impl App {
+    pub async fn block_porn(&mut self) -> Result<(), reqwest::Error> {
+        let mut downloads = Vec::<HashSet<String>>::with_capacity(self.data.hosts.porn.urls.len());
+        let mut capacity: usize = 0;
+        for url in self.data.hosts.porn.urls.iter() {
+            if !url.is_enable {
+                continue;
+            };
+            let tmp: String = get::get(&url.url).await?;
+            let f: HashSet<String> = filter::host(tmp);
+            capacity += f.len();
+            downloads.push(f);
+        }
+        let mut result = HashSet::<String>::with_capacity(capacity);
+        for i in downloads {
+            result.extend(i);
+        }
+        result.remove("127.0.0.1");
+        result.remove("0.0.0.0");
+        if &result == &self.host.porn {
+            return Ok(());
+        };
+        self.host.porn.clear();
+        self.host.porn.extend(result);
+        Ok(())
+    }
+
+    pub fn unblock_porn(&mut self) {
+        self.data.hosts.porn.is_enable = false;
+        self.host.porn.clear();
+    }
+}
+
+impl App {
+    pub async fn block_fakenews(&mut self) -> Result<(), reqwest::Error> {
+        let mut downloads = Vec::<HashSet<String>>::with_capacity(self.data.hosts.fakenews.urls.len());
+        let mut capacity: usize = 0;
+        for url in self.data.hosts.fakenews.urls.iter() {
+            if !url.is_enable {
+                continue;
+            };
+            let tmp: String = get::get(&url.url).await?;
+            let f: HashSet<String> = filter::host(tmp);
+            capacity += f.len();
+            downloads.push(f);
+        }
+        let mut result = HashSet::<String>::with_capacity(capacity);
+        for i in downloads {
+            result.extend(i);
+        }
+        result.remove("127.0.0.1");
+        result.remove("0.0.0.0");
+        if &result == &self.host.fakenews {
+            return Ok(());
+        };
+        self.host.fakenews.clear();
+        self.host.fakenews.extend(result);
+        Ok(())
+    }
+
+    pub fn unblock_fakenews(&mut self) {
+        self.data.hosts.fakenews.is_enable = false;
+        self.host.fakenews.clear();
+    }
+}
+
+impl App {
+    pub async fn block_social(&mut self) -> Result<(), reqwest::Error> {
+        let mut downloads = Vec::<HashSet<String>>::with_capacity(self.data.hosts.social.urls.len());
+        let mut capacity: usize = 0;
+        for url in self.data.hosts.social.urls.iter() {
+            if !url.is_enable {
+                continue;
+            };
+            let tmp: String = get::get(&url.url).await?;
+            let f: HashSet<String> = filter::host(tmp);
+            capacity += f.len();
+            downloads.push(f);
+        }
+        let mut result = HashSet::<String>::with_capacity(capacity);
+        for i in downloads {
+            result.extend(i);
+        }
+        result.remove("127.0.0.1");
+        result.remove("0.0.0.0");
+        if &result == &self.host.social {
+            return Ok(());
+        };
+        self.host.social.clear();
+        self.host.social.extend(result);
+        Ok(())
+    }
+
+    pub fn unblock_social(&mut self) {
+        self.data.hosts.social.is_enable = false;
+        self.host.social.clear();
+    }
+}
+
+impl App {
+    pub async fn block_gambling(&mut self) -> Result<(), reqwest::Error> {
+        let mut downloads = Vec::<HashSet<String>>::with_capacity(self.data.hosts.gambling.urls.len());
+        let mut capacity: usize = 0;
+        for url in self.data.hosts.gambling.urls.iter() {
+            if !url.is_enable {
+                continue;
+            };
+            let tmp: String = get::get(&url.url).await?;
+            let f: HashSet<String> = filter::host(tmp);
+            capacity += f.len();
+            downloads.push(f);
+        }
+        let mut result = HashSet::<String>::with_capacity(capacity);
+        for i in downloads {
+            result.extend(i);
+        }
+        result.remove("127.0.0.1");
+        result.remove("0.0.0.0");
+        if &result == &self.host.gambling {
+            return Ok(());
+        };
+        self.host.gambling.clear();
+        self.host.gambling.extend(result);
+        Ok(())
+    }
+
+    pub fn unblock_gambling(&mut self) {
+        self.data.hosts.gambling.is_enable = false;
+        self.host.gambling.clear();
     }
 }

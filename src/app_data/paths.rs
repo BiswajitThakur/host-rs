@@ -2,7 +2,6 @@
 use dirs;
 use std::{collections::HashMap, path::PathBuf};
 
-#[allow(dead_code)]
 pub fn host_path() -> Result<PathBuf, String> {
     #[cfg(debug_assertions)]
     let host_path: PathBuf = ["test_files", "hosts"].iter().collect();

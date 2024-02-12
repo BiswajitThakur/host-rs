@@ -131,7 +131,6 @@ fn setup_path(path: &PathBuf) -> Result<(), Box<dyn Error>> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::setup_path;
