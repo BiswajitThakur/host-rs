@@ -27,6 +27,7 @@ impl Cli {
         web::init(&mut app, &matches, &mut action);
         if action {
             app.flush()?;
+            println!("......SUCCESS......");
         };
         Ok(())
     }

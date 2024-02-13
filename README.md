@@ -66,3 +66,249 @@ Options:
   -V, --version                                     Print version
 
 ```
+
+## Examples
+
+### Block web
+
+```
+# host-rs --block-web <hostname0> <hostname1> ...
+```
+
+or
+
+```
+# host-rs -b <hostname0> <hostname1> ...
+```
+
+or
+
+```
+# host-rs --bw <hostname0> <hostname1> ...
+```
+
+### Unblock web
+
+```
+# host-rs --unblock-web <hostname0> <hostname1> ...
+```
+
+or
+
+```
+# host-rs -u <hostname0> <hostname1> ...
+```
+
+or
+
+```
+# host-rs --uw <hostname0> <hostname1> ...
+```
+
+### Redirect websites
+
+```
+# host-rs --add-redirect <hostname0> <hostname1>
+```
+
+or
+
+```
+# host-rs --ar <hostname0> <hostname1>
+```
+
+In above example, &lt;hostname1&gt; redirected to &lt;hostname0&gt;
+
+### Remove Redirect
+
+```
+# host-rs --rm-redirect <hostname0> <hostname1> ...
+```
+
+or 
+
+```
+# host-rs --rr <hostname0> <hostname1> ...
+```
+
+### Block ads
+
+```
+# host-rs --block-ads
+```
+
+or
+
+```
+# host-rs --ba
+```
+
+### Unblock ads
+
+```
+# host-rs --unblock-ads
+```
+
+or
+
+```
+# host-rs --ua
+```
+
+or
+
+```
+# host-rs --uba
+```
+
+### Block porn
+
+```
+# host-rs --block-porn
+```
+
+or
+
+```
+# host-rs --bp
+```
+
+### Unblock porn
+
+```
+# host-rs --unblock-porn
+```
+
+or
+
+```
+# host-rs --up
+```
+
+or
+
+```
+# host-rs --ubp
+```
+
+### Block fakenews
+
+```
+# host-rs --block-fakenews
+```
+
+or
+
+```
+# host-rs --bf
+```
+
+### Unblock fakenews
+
+```
+# host-rs --unblock-fakenews
+```
+
+or
+
+```
+# host-rs --uf
+```
+
+or
+
+```
+# host-rs --ubf
+```
+
+### Block social
+
+```
+# host-rs --block-social
+```
+
+or
+
+```
+# host-rs --bs
+```
+
+### Unblock social
+
+```
+# host-rs --unblock-social
+```
+
+or
+
+```
+# host-rs --us
+```
+
+or
+
+```
+# host-rs --ubs
+```
+
+### Block gambling
+
+```
+# host-rs --block-gambling
+```
+
+or
+
+```
+# host-rs --bg
+```
+
+### Unblock gambling
+
+```
+# host-rs --unblock-gambling
+```
+
+or
+
+```
+# host-rs --ug
+```
+
+or
+
+```
+# host-rs --ubg
+```
+
+### Update host sources
+
+```
+# host-rs --update-sources
+```
+
+### Update
+
+This features is not implemented yet.
+
+```
+# host-rs --update
+```
+
+or
+
+```
+# host-rs --update-self
+```
+
+### Uninstall
+
+```
+# host-rs --remove-self
+```
+
+or
+
+```
+# host-rs --uninstall
+```

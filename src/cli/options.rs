@@ -116,13 +116,14 @@ pub fn init() -> clap::ArgMatches {
         .arg(
             Arg::new("update-self")
                 .long("update-self")
+                .alias("update")
                 .help("Update if available.")
                 .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("rm-self")
                 .long("remove-self")
-                .alias("rm-self")
+                .alias("uninstall")
                 .help("Uninstall")
                 .action(ArgAction::SetTrue),
         )
