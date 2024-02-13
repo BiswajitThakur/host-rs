@@ -5,9 +5,6 @@ Block Website, Ads, Social, Porn, Fakenews, Gambling, Spam sites and website red
 > [!NOTE]
 > Administrator privileges required to perform any block or unblock operation.
 
-> [!WARNING]
-> Work in progress
-
 ## Installation
 
 ### Install from source code on Linux
