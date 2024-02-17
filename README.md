@@ -5,6 +5,9 @@ Block Website, Ads, Social, Porn, Fakenews, Gambling, Spam sites and website red
 > [!NOTE]
 > Administrator privileges required to perform any block or unblock operation.
 
+> [!NOTE]
+> This application does not block YouTube's ads.
+
 ## Installation
 
 ### Install from source code on Linux
@@ -68,244 +71,244 @@ Options:
 
 ### Block web
 
-```
-# host-rs --block-web <hostname0> <hostname1> ...
-```
-
-or
-
-```
-# host-rs -b <hostname0> <hostname1> ...
+```bash
+host-rs --block-web <hostname0> <hostname1> ...
 ```
 
 or
 
+```bash
+host-rs -b <hostname0> <hostname1> ...
 ```
-# host-rs --bw <hostname0> <hostname1> ...
+
+or
+
+```bash
+host-rs --bw <hostname0> <hostname1> ...
 ```
 
 ### Unblock web
 
-```
-# host-rs --unblock-web <hostname0> <hostname1> ...
-```
-
-or
-
-```
-# host-rs -u <hostname0> <hostname1> ...
+```bash
+host-rs --unblock-web <hostname0> <hostname1> ...
 ```
 
 or
 
+```bash
+host-rs -u <hostname0> <hostname1> ...
 ```
-# host-rs --uw <hostname0> <hostname1> ...
+
+or
+
+```bash
+host-rs --uw <hostname0> <hostname1> ...
 ```
 
 ### Redirect websites
 
-```
-# host-rs --add-redirect <hostname0> <hostname1>
+```bash
+host-rs --add-redirect <hostname0> <hostname1>
 ```
 
 or
 
-```
-# host-rs --ar <hostname0> <hostname1>
+```bash
+host-rs --ar <hostname0> <hostname1>
 ```
 
 In above example, &lt;hostname1&gt; redirected to &lt;hostname0&gt;
 
 ### Remove Redirect
 
-```
-# host-rs --rm-redirect <hostname0> <hostname1> ...
+```bash
+host-rs --rm-redirect <hostname0> <hostname1> ...
 ```
 
 or 
 
-```
-# host-rs --rr <hostname0> <hostname1> ...
+```bash
+host-rs --rr <hostname0> <hostname1> ...
 ```
 
 ### Block ads
 
-```
-# host-rs --block-ads
+```bash
+host-rs --block-ads
 ```
 
 or
 
-```
-# host-rs --ba
+```bash
+host-rs --ba
 ```
 
 ### Unblock ads
 
-```
-# host-rs --unblock-ads
-```
-
-or
-
-```
-# host-rs --ua
+```bash
+host-rs --unblock-ads
 ```
 
 or
 
+```bash
+host-rs --ua
 ```
-# host-rs --uba
+
+or
+
+```bash
+host-rs --uba
 ```
 
 ### Block porn
 
-```
-# host-rs --block-porn
+```bash
+host-rs --block-porn
 ```
 
 or
 
-```
-# host-rs --bp
+```bash
+host-rs --bp
 ```
 
 ### Unblock porn
 
-```
-# host-rs --unblock-porn
-```
-
-or
-
-```
-# host-rs --up
+```bash
+host-rs --unblock-porn
 ```
 
 or
 
+```bash
+host-rs --up
 ```
-# host-rs --ubp
+
+or
+
+```bash
+host-rs --ubp
 ```
 
 ### Block fakenews
 
-```
-# host-rs --block-fakenews
+```bash
+host-rs --block-fakenews
 ```
 
 or
 
-```
-# host-rs --bf
+```bash
+host-rs --bf
 ```
 
 ### Unblock fakenews
 
-```
-# host-rs --unblock-fakenews
-```
-
-or
-
-```
-# host-rs --uf
+```bash
+host-rs --unblock-fakenews
 ```
 
 or
 
+```bash
+host-rs --uf
 ```
-# host-rs --ubf
+
+or
+
+```bash
+host-rs --ubf
 ```
 
 ### Block social
 
-```
-# host-rs --block-social
+```bash
+host-rs --block-social
 ```
 
 or
 
-```
-# host-rs --bs
+```bash
+host-rs --bs
 ```
 
 ### Unblock social
 
-```
-# host-rs --unblock-social
-```
-
-or
-
-```
-# host-rs --us
+```bash
+host-rs --unblock-social
 ```
 
 or
 
+```bash
+host-rs --us
 ```
-# host-rs --ubs
+
+or
+
+```bash
+host-rs --ubs
 ```
 
 ### Block gambling
 
-```
-# host-rs --block-gambling
+```bash
+host-rs --block-gambling
 ```
 
 or
 
-```
-# host-rs --bg
+```bash
+host-rs --bg
 ```
 
 ### Unblock gambling
 
-```
-# host-rs --unblock-gambling
-```
-
-or
-
-```
-# host-rs --ug
+```bash
+host-rs --unblock-gambling
 ```
 
 or
 
+```bash
+host-rs --ug
 ```
-# host-rs --ubg
+
+or
+
+```bash
+host-rs --ubg
 ```
 
 ### Update host sources
 
-```
-# host-rs --update-sources
+```bash
+host-rs --update-sources
 ```
 
 ### Update
 
 This features is not implemented yet.
 
-```
-# host-rs --update
+```bash
+host-rs --update
 ```
 
 or
 
-```
-# host-rs --update-self
+```bash
+host-rs --update-self
 ```
 
 ### Uninstall
 
-```
-# host-rs --remove-self
+```bash
+host-rs --remove-self
 ```
 
 or
 
-```
-# host-rs --uninstall
+```bash
+host-rs --uninstall
 ```
