@@ -6,4 +6,5 @@ Cargo.lock
 /target
 tmp*
 /tmp*
+installer_*
 

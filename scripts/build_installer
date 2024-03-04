@@ -1,0 +1,68 @@
+#!/bin/python3
+import os
+
+script = b'''#!/bin/bash
+
+TMP_DIR=$( mktemp -d )
+pkg_name="host-rs"
+zname="myapp.tgz"
+
+ARCHIVE=`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0;}' $0`
+
+tail -n+$ARCHIVE $0 > "$TMP_DIR/$zname"
+
+cd "$TMP_DIR"
+
+tar -zxvf "$zname"
+
+if [ -f /usr/bin/$pkg_name ]; then
+    rm /usr/bin/$pkg_name
+    if [[ $? -eq 0 ]]; then
+       echo "Old /usr/bin/$pkg_name removed"
+    else
+       echo "Faild to remove /usr/bin/$pkg_name"
+       rm -rf "$TMP_DIR"
+       exit 1
+    fi
+fi
+
+mv "$pkg_name" /usr/bin/
+
+if [[ $? -eq 0 ]]; then
+    echo "....INSTALL SUCCESS...."
+else
+    echo "....FAILD TO INSTALL...."
+fi
+
+rm -rf "$TMP_DIR"
+exit
+__ARCHIVE_BELOW__
+'''
+
+cmpl = os.system('cargo build --release')
+if cmpl != 0 :
+    print('Faild to compile')
+    os._exit(1)
+
+os.chdir('target/release/')
+
+print('Compressing target/release/host-rs')
+tgz = os.system(r'tar -czvf hh.tgz host-rs')
+if tgz != 0:
+    print('Faild to compress.')
+    os._exit(1)
+
+print('Creating installer_host-rs_*.sh')
+inst = open(f'installer_host-rs_.sh', 'wb')
+inst.write(script)
+f=open('hh.tgz', 'rb')
+inst.write(f.read())
+f.close()
+inst.close()
+
+os.remove('hh.tgz')
+print('Removed: compressed target/release/host-rs')
+
+os.chdir(r'./../..')
+os.system(r'mv target/release/installer_host-rs_* .')
+os.system('chmod +x installer_host-rs_*')
