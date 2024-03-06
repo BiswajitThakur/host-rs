@@ -14,7 +14,6 @@ Block Website, Ads, Social, Porn, Fakenews, Gambling, Spam sites and website red
 ```bash
 git clone https://github.com/BiswajitThakur/host-rs
 cd host-rs
-./setup.sh
 make build
 sudo make install
 ```

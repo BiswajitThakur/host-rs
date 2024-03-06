@@ -1,7 +1,87 @@
 #!/bin/env python3
 import os
 
-script = b'''#!/bin/bash
+script = b'''#!/bin/env bash
+
+function print_success {
+    green='\033[0;32m'
+    reset='\033[0m'
+    echo -e "${green}$@${reset}"
+}
+
+function print_faild {
+    red='\033[0;31m'
+    reset='\033[0m'
+    echo -e "${red}$@${reset}"
+}
+
+function check_root {
+    if [[ "$(id -u)" -ne 0 ]]; then
+        print_faild "This operation must be run as root. Please use sudo"
+        exit 1
+    fi
+}
+
+check_root;
+
+function remove_tmp_dir {
+    if [ -d $1 ]; then
+        rm -rf $1
+        if [[ $? -eq 0 ]]; then
+            print_success "Removed temp dir: $1"
+        else
+            print_faild "Faild to remove temp dir: $1"
+        fi
+    fi
+}
+
+function install_bin {
+    if [ -d $1 ]; then
+        if [ -f "$1/$2" ]; then
+            rm $1/$2
+            if [[ $? -eq 0 ]]; then
+                print_success "Removed old: $1/$2"
+                mv $2 $1/
+                if [[ $? -eq 0 ]]; then
+                    print_success "....REINSTALL/UPDATE SUCCESS...."
+                    remove_tmp_dir "$TMP_DIR"
+                    exit 0
+                else
+                    print_faild "....FAILD TO REINSTALL/UPDATE...."
+                    remove_tmp_dir "$TMP_DIR"
+                    exit 1
+                fi
+            else
+                print_faild "Faild to remove old: $1/$2"
+                remove_tmp_dir "$TMP_DIR"
+                exit 1
+            fi
+        else
+            mv $2 $1/
+            if [[ $? -eq 0 ]]; then
+                print_success "....INSTALL SUCCESS...."
+                remove_tmp_dir "$TMP_DIR"
+                exit 0
+            else
+                print_faild "....FAILD TO INSTALL...."
+                remove_tmp_dir "$TMP_DIR"
+                exit 1
+            fi
+        fi
+    else
+        print_faild "$1: Not found."
+        remove_tmp_dir "$TMP_DIR"
+        exit 1
+    fi
+}
+
+function install {
+    if [ -d /usr/bin ]; then
+        install_bin /usr/bin $1;
+    elif [ -d /data/data/com.termux/files/usr/bin ]; then
+        install_bin /data/data/com.termux/files/usr/bin $1;
+    fi
+}
 
 TMP_DIR=$( mktemp -d )
 pkg_name="host-rs"
@@ -14,27 +94,16 @@ tail -n+$ARCHIVE $0 > "$TMP_DIR/$zname"
 cd "$TMP_DIR"
 
 tar -zxvf "$zname"
-
-if [ -f /usr/bin/$pkg_name ]; then
-    rm /usr/bin/$pkg_name
-    if [[ $? -eq 0 ]]; then
-       echo "Old /usr/bin/$pkg_name removed"
-    else
-       echo "Faild to remove /usr/bin/$pkg_name"
-       rm -rf "$TMP_DIR"
-       exit 1
-    fi
+if [[ $? -ne 0 ]]; then
+    print_faild "Faild to extract: $TMP_DIR/$zname"
+    remove_tmp_dir "$TMP_DIR"
+    exit 1
 fi
 
-mv "$pkg_name" /usr/bin/
+install $pkg_name;
 
-if [[ $? -eq 0 ]]; then
-    echo "....INSTALL SUCCESS...."
-else
-    echo "....FAILD TO INSTALL...."
-fi
+remove_tmp_dir "$TMP_DIR"
 
-rm -rf "$TMP_DIR"
 exit
 __ARCHIVE_BELOW__
 '''
