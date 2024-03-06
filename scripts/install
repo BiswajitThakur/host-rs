@@ -1,0 +1,70 @@
+#!/bin/env bash
+
+source ./scripts/setup
+
+prog="host-rs"
+
+function print_success {
+    green='\033[0;32m'
+    reset='\033[0m'
+    echo -e "${green}$@${reset}"
+}
+
+function print_faild {
+    red='\033[0;31m'
+    reset='\033[0m'
+    echo -e "${red}$@${reset}"
+}
+
+function check_root {
+    if [[ "$(id -u)" -ne 0 ]]; then
+        print_faild "This operation must be run as root. Please use sudo";
+        exit 1
+    fi
+}
+
+function install_bin {
+    if [ -d $1 ]; then
+        if [ -f "$1/$prog" ]; then
+            rm $1/$prog
+            if [[ $? -eq 0 ]]; then
+                print_success "Removed old: $1/$prog"
+                cp target/release/$prog $1/
+                if [[ $? -eq 0 ]]; then
+                    print_success "....REINSTALL/UPDATE SUCCESS...."
+                    exit 0
+                else
+                    print_faild "....FAILD TO REINSTALL/UPDATE...."
+                    exit 1
+                fi
+            else
+                print_faild "Faild to remove."
+                exit 1
+            fi
+        else
+            cp target/release/$prog $1/
+            if [[ $? -eq 0 ]]; then
+                print_success "....INSTALL SUCCESS...."
+                exit 0
+            else
+                print_faild "....FAILD TO INSTALL...."
+                exit 1
+            fi
+        fi
+    else
+        print_faild "$1: Not found."
+        exit 1
+    fi
+}
+
+function install {
+    check_root;
+    if [ -d /usr/bin ]; then
+        install_bin /usr/bin;
+    elif [ -d /data/data/com.termux/files/usr/bin ]; then
+        install_bin /data/data/com.termux/files/usr/bin;
+    fi
+
+}
+
+install;
