@@ -1,5 +1,5 @@
 
-.PHONY: setup build install installer
+.PHONY: setup build install installer test
 
 setup:
 	@./scripts/setup
@@ -13,4 +13,8 @@ installer: setup build
 
 install:
 	@./scripts/install
+
+test: setup
+	@./scripts/test
+
 
