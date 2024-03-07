@@ -1,7 +1,5 @@
 #!/bin/env bash
 
-source ./scripts/setup
-
 prog="host-rs"
 
 function print_success {

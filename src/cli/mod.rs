@@ -1,3 +1,4 @@
+use crossterm::style::Stylize;
 use host_rs::app::App;
 mod ads;
 mod fakenews;
@@ -27,7 +28,7 @@ impl Cli {
         web::init(&mut app, &matches, &mut action);
         if action {
             app.flush()?;
-            println!("......SUCCESS......");
+            println!("{}","......SUCCESS......".green());
         };
         Ok(())
     }
