@@ -1,7 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
+use crossterm::style::Stylize;
+
 use crate::host_rw::{filter, get};
+use crate::host_rw::filter::filter_host;
 
 use super::app_data::{
     data::{self, Data},
@@ -126,7 +129,16 @@ impl App {
 
 impl App {
     pub fn add_to_allow_list(&mut self, val: Vec<String>) {
-        for i in &val {
+        let mut ff: Vec<String> = Vec::with_capacity(val.len());
+        for i in val {
+            let tmp = filter_host(&i);
+            if tmp.is_none() {
+                println!("{}: {}", "Invalid host name".yellow(), i.red());
+                continue;
+            }
+            ff.push(tmp.unwrap());
+        }
+        for i in &ff {
             self.host.block_list.remove(i);
             self.host.ads.remove(i);
             self.host.fakenews.remove(i);
@@ -134,13 +146,22 @@ impl App {
             self.host.gambling.remove(i);
             self.host.redirect_list.remove(i);
         }
-        self.host.allow_list.extend(val);
+        self.host.allow_list.extend(ff);
     }
 }
 
 impl App {
     pub fn add_to_block_list(&mut self, val: Vec<String>) {
-        for i in &val {
+        let mut ff: Vec<String> = Vec::with_capacity(val.len());
+        for i in val {
+            let tmp = filter_host(&i);
+            if tmp.is_none() {
+                println!("{}: {}", "Invalid host name".yellow(), i.red());
+                continue;
+            }
+            ff.push(tmp.unwrap());
+        }
+        for i in &ff {
             self.host.allow_list.remove(i);
             self.host.ads.remove(i);
             self.host.fakenews.remove(i);
@@ -148,7 +169,7 @@ impl App {
             self.host.gambling.remove(i);
             self.host.redirect_list.remove(i);
         }
-        self.host.block_list.extend(val);
+        self.host.block_list.extend(ff);
     }
 }
 

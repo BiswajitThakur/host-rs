@@ -39,6 +39,18 @@ pub fn is_comment(s: &str, r1: &Regex, r2: &Regex) -> bool {
     r1.is_match(s) || r2.is_match(s)
 }
 
+pub fn filter_host(webs: &str) -> Option<String> {
+    let re = Regex::new(r"^\s*https?://+(?<host>[^\s\?\/:]+).*$").unwrap();
+    if re.is_match(&webs) {
+        return Some(re.captures(&webs).unwrap()["host"].to_string());
+    };
+    let re = Regex::new(r"^\s*(?<host>[a-zA-Z0-9]+\.[^\s\?\/:]+).*$").unwrap();
+    if re.is_match(&webs) {
+        return Some(re.captures(&webs).unwrap()["host"].to_string());
+    };
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,5 +135,97 @@ localhost  fooo.in";
             ("z.in".into(), "f.com".into()),
         ]);
         assert_eq!(got, want);
+    }
+    #[test]
+    fn test_filter_host() {
+        assert_eq!(filter_host(""), None);
+        assert_eq!(filter_host("    "), None);
+        assert_eq!(filter_host("hhff?lk=89"), None);
+        assert_eq!(filter_host("/q123.com?name=BT"), None);
+        assert_eq!(filter_host("/q123.com?name=BT#hello"), None);
+        assert_eq!(
+            filter_host("example.com"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            filter_host("http://example.com"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            filter_host("https://example.com"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            filter_host("http://example.com/about"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            filter_host("   https://example.com/url?qq=123&hello=testing"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            filter_host("   example.com/url?qq=123&hello=testing"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            filter_host("example.com"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            filter_host("https://123h.in?kk=99&m=rr"),
+            Some("123h.in".to_string())
+        );
+        assert_eq!(
+            filter_host("123h.in?kk=99&m=rr"),
+            Some("123h.in".to_string())
+        );
+        assert_eq!(
+            filter_host("127.0.0.1:8080"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("127.0.0.1:8080/"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("127.0.0.1:8080?"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("127.0.0.1"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("http://127.0.0.1:8080/"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("https://127.0.0.1:8080/"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("https://127.0.0.1:8080/login"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("  127.0.0.1:80/login?uname=test_user&pass=12345678"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("  http://127.0.0.1/login?uname=test_user&pass=12345678"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("  127.0.0.1/login?uname=test_user&pass=12345678"),
+            Some("127.0.0.1".to_string())
+        );
+        assert_eq!(
+            filter_host("https://1.1.1.1:8080/home"),
+            Some("1.1.1.1".to_string())
+        );
+        assert_eq!(
+            filter_host("123.com"),
+            Some("123.com".to_string())
+        );
     }
 }
