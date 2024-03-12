@@ -7,6 +7,8 @@ use std::{
     io::BufReader,
     path::PathBuf,
 };
+#[cfg(not(debug_assertions))]
+use crossterm::style::Stylize;
 
 use super::{Data, Host, Ops, Url};
 
@@ -14,9 +16,7 @@ use super::{Data, Host, Ops, Url};
 pub fn db() -> Result<Data, Box<dyn Error>> {
     #[cfg(not(debug_assertions))]
     if !crate::app_data::usr::is_admin() {
-        return Err(Box::new(super::myerr::MyError(
-            "Administrator privilages required".into(),
-        )));
+        panic!("{}", "Administrator privilages required".red().on_black());
     };
     let paths: HashMap<String, PathBuf> = paths();
     let db_path: &PathBuf = paths.get("db").unwrap();
