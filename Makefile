@@ -4,17 +4,14 @@
 setup:
 	@./scripts/setup
 
-build: setup
-	@echo "Please wait while building..."
-	@cargo build --release
+build:
+	@./scripts/build
 
-installer: setup build
+installer:
 	@./scripts/build_installer
 
 install:
 	@./scripts/install
 
-test: setup
+test:
 	@./scripts/test
-
-
