@@ -14,7 +14,7 @@ Block Website, Ads, Social, Porn, Fakenews, Gambling, Spam sites and website red
 ```bash
 git clone https://github.com/BiswajitThakur/host-rs
 cd host-rs
-make build
+make setup build
 sudo make install
 ```
 ### Install from precompiled binary
@@ -71,37 +71,37 @@ Options:
 ### Block web
 
 ```bash
-host-rs --block-web <hostname0> <hostname1> ...
+host-rs --block-web <hostname0 or url0> <hostname1 or url1> ...
 ```
 
 or
 
 ```bash
-host-rs -b <hostname0> <hostname1> ...
+host-rs -b <hostname0 or url0> <hostname1 or url1> ...
 ```
 
 or
 
 ```bash
-host-rs --bw <hostname0> <hostname1> ...
+host-rs --bw <hostname0 or url0> <hostname1 or url1> ...
 ```
 
 ### Unblock web
 
 ```bash
-host-rs --unblock-web <hostname0> <hostname1> ...
+host-rs --unblock-web <hostname0 or url0> <hostname1 or url1> ...
 ```
 
 or
 
 ```bash
-host-rs -u <hostname0> <hostname1> ...
+host-rs -u <hostname0 or url0> <hostname1 or url1> ...
 ```
 
 or
 
 ```bash
-host-rs --uw <hostname0> <hostname1> ...
+host-rs --uw <hostname0 or url0> <hostname1 or url1> ...
 ```
 
 ### Redirect websites
