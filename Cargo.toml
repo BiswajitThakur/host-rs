@@ -9,7 +9,7 @@ readme = "README.md"
 license = "MIT"
 license-file = "LICENSE"
 description = "Block Website, Ads, Social, Porn, Fakenews, Gambling, Spam sites and website redirector."
-keywords = ["host", "host-rs", "blocker", "web", "website", "url", "redirect", "ads", "fakenews", "social", "gambling"]
+keywords = ["host", "blocker", "website", "url", "redirect"]
 categories = ["command-line-utilities"]
 
 [profile.release]
