@@ -9,6 +9,9 @@ Block Website, Ads, Social, Porn, Fakenews, Gambling, Spam sites and website red
 > This application does not block YouTube's ads.
 
 ## Installation
+```
+cargo install host-rs
+```
 
 ### Install from source code on Linux
 ```bash
