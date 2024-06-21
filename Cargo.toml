@@ -2,11 +2,15 @@
 name = "host-rs"
 version = "0.1.1"
 edition = "2021"
-authors = ["Biswajit Thakur"]
+authors = ["Biswajit Thakur <biswajit733127@gmail.com>"]
 homepage = "https://github.com/BiswajitThakur/host-rs"
 repository = "https://github.com/BiswajitThakur/host-rs"
 readme = "README.md"
 license = "MIT"
+license-file = "LICENSE"
+description = "Block Website, Ads, Social, Porn, Fakenews, Gambling, Spam sites and website redirector."
+keywords = ["host", "host-rs", "blocker", "web", "website", "url", "redirect", "ads", "fakenews", "social", "gambling"]
+categories = ["command-line-utilities"]
 
 [profile.release]
 strip = true
