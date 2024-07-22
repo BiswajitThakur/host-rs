@@ -26,7 +26,7 @@ sudo make install
 1. `chmod +x installer_host-rs_*.sh` - Add executable permission
 1. `sudo ./installer_host-rs_*.sh` - Execute
 
-## Features of Host-RS
+## ToDo
 - [x] Block websites
 - [x] Unblock websites
 - [x] Redirect website
