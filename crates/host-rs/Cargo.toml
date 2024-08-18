@@ -1,0 +1,9 @@
+[package]
+name = "host-rs"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+cli = { path = "../cli" }
+clap = { workspace = true }
+host-utils = { path = "../host-utils" }
