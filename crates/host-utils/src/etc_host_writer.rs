@@ -1,11 +1,12 @@
-use crate::{VecList, H, R};
+use crate::{HashList, VecList, H, R};
+use std::collections::HashSet;
 use std::io::Write;
 use std::{error::Error, fs::File, path::Path};
 
 pub fn etc_write<T: AsRef<Path>>(
     path: T,
-    current_content: (VecList<H>, VecList<R>),
-    previous_content: &str,
+    current_content: (HashSet<H>, HashSet<&R>),
+    previous_content: Vec<&str>,
 ) -> Result<(), Box<dyn Error>> {
     let mut file = File::create(path)?;
     let start_host = "#host-rs-beg#";
@@ -13,7 +14,7 @@ pub fn etc_write<T: AsRef<Path>>(
     let start_redirect = "#r-host-rs-beg#";
     let end_redirect = "#r-host-rs-end#";
     let (h, r) = current_content;
-    let mut lines = previous_content.lines();
+    let mut lines = previous_content.iter();
     let iter = &mut lines;
     while let Some(line) = iter.next() {
         let line = line.trim();
@@ -38,12 +39,12 @@ pub fn etc_write<T: AsRef<Path>>(
         writeln!(&mut file, "{}", line)?;
     }
     writeln!(&mut file, "{}", start_host)?;
-    for i in h.as_vec().iter() {
+    for i in h.iter() {
         writeln!(&mut file, "{}", i)?;
     }
     writeln!(&mut file, "{}", end_host)?;
     writeln!(&mut file, "{}", start_redirect)?;
-    for i in r.as_vec().iter() {
+    for i in r.iter() {
         writeln!(&mut file, "{}", i)?;
     }
     writeln!(&mut file, "{}", end_redirect)?;

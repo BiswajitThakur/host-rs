@@ -5,5 +5,4 @@ edition.workspace = true
 
 [dependencies]
 dirs = { workspace = true }
-regex = { workspace = true }
 

@@ -1,249 +1,196 @@
-use clap::{Arg, ArgAction, Command};
+mod cli_ops;
+mod commands;
 
-use host::App;
+use std::path::PathBuf;
 
-fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Command {
-    Command::new(name)
-        .about(about)
-        .version(version)
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .subcommand(
-            Command::new("add")
-                .short_flag('A')
-                .long_flag("add")
-                .aliases(["insert", "append", "push"])
-                .about("Add host or url to allow, block, redirect, sources list.")
-                .arg(
-                    Arg::new("allow")
-                        .short('a')
-                        .long("allow")
-                        .conflicts_with_all(["block", "redirect", "sources"])
-                        .help("Add host to allow list & removed from block list.")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                )
-                .arg(
-                    Arg::new("block")
-                        .short('b')
-                        .long("block")
-                        .conflicts_with_all(["redirect", "sources"])
-                        .help("Add to block list & remove from allow list.")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                )
-                .arg(
-                    Arg::new("redirect")
-                        .short('r')
-                        .long("redirect")
-                        .conflicts_with("sources")
-                        .help("Add to redirect list & remove from allow and block.")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                )
-                .arg(
-                    Arg::new("sources")
-                        .short('s')
-                        .long("sources")
-                        .help("Add url to sources list")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                ),
-        )
-        .subcommand(
-            Command::new("remove")
-                .short_flag('R')
-                .long_flag("remove")
-                .aliases(["rm", "pop", "delete"])
-                .about(".....")
-                .arg(
-                    Arg::new("allow")
-                        .short('a')
-                        .long("allow")
-                        .conflicts_with_all(["block", "redirect", "sources"])
-                        .help("Remove host from allow list.")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                )
-                .arg(
-                    Arg::new("block")
-                        .short('b')
-                        .long("block")
-                        .conflicts_with_all(["redirect", "sources"])
-                        .help("Remove host from block list.")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                )
-                .arg(
-                    Arg::new("redirect")
-                        .short('r')
-                        .long("redirect")
-                        .conflicts_with("sources")
-                        .help("Remove host from redirect list.")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                )
-                .arg(
-                    Arg::new("sources")
-                        .short('s')
-                        .long("sources")
-                        .help("Remove url from sources list")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                ),
-        )
-        .subcommand(
-            Command::new("import")
-                .short_flag('I')
-                .long_flag("import")
-                .about(".....")
-                .arg(
-                    Arg::new("allow")
-                        .short('a')
-                        .long("allow")
-                        .conflicts_with_all(["block", "redirect", "sources"])
-                        .help("import allow list.")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                )
-                .arg(
-                    Arg::new("block")
-                        .short('b')
-                        .long("block")
-                        .conflicts_with_all(["redirect", "sources"])
-                        .help("import block list.")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                )
-                .arg(
-                    Arg::new("redirect")
-                        .short('r')
-                        .long("redirect")
-                        .conflicts_with("sources")
-                        .help("import redirect list.")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                )
-                .arg(
-                    Arg::new("sources")
-                        .short('s')
-                        .long("sources")
-                        .help("import sources list")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
-                ),
-        )
-        .subcommand(
-            Command::new("export")
-                .short_flag('E')
-                .long_flag("export")
-                .about(".....")
-                .arg(
-                    Arg::new("allow")
-                        .short('a')
-                        .long("allow")
-                        .conflicts_with_all(["block", "redirect", "sources"])
-                        .help("export allow list.")
-                        .action(ArgAction::Set)
-                        .num_args(1),
-                )
-                .arg(
-                    Arg::new("block")
-                        .short('b')
-                        .long("block")
-                        .conflicts_with_all(["redirect", "sources"])
-                        .help("export block list.")
-                        .action(ArgAction::Set)
-                        .num_args(1),
-                )
-                .arg(
-                    Arg::new("redirect")
-                        .short('r')
-                        .long("redirect")
-                        .conflicts_with("sources")
-                        .help("export redirect list.")
-                        .action(ArgAction::Set)
-                        .num_args(1),
-                )
-                .arg(
-                    Arg::new("sources")
-                        .short('s')
-                        .long("sources")
-                        .help("expoort sources list")
-                        .action(ArgAction::Set)
-                        .num_args(1),
-                ),
-        )
-        .subcommand(
-            Command::new("show")
-                .short_flag('s')
-                .long_flag("show")
-                .about(".....")
-                .arg(
-                    Arg::new("allow")
-                        .short('a')
-                        .long("allow")
-                        .conflicts_with_all(["block", "redirect", "sources"])
-                        .help("show allow list.")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("block")
-                        .short('b')
-                        .long("block")
-                        .conflicts_with_all(["redirect", "sources"])
-                        .help("show block list.")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("redirect")
-                        .short('r')
-                        .long("redirect")
-                        .conflicts_with("sources")
-                        .help("show redirect list.")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("sources")
-                        .short('s')
-                        .long("sources")
-                        .help("show sources list")
-                        .action(ArgAction::SetTrue),
-                ),
-        )
-        .arg(
-            Arg::new("update")
-                .short('u')
-                .long("update")
-                .help("Self update")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("uninstall")
-                .long("uninstall")
-                .help("Self unistall")
-                .action(ArgAction::SetTrue),
-        )
+use host_utils::{host_path, read_file, HashList, H, R};
+use storage::{Container, StoragePath};
+
+use crate::cli_ops::cmd;
+
+pub enum CliApp {
+    Add(CliArgs),
+    Remove(CliArgs),
+    Import,
+    Export,
+    Show,
+    UpdateSources,
+    UpdateSelf,
 }
 
-pub fn cli_app(app: &mut App, name: &'static str, about: &'static str, version: &'static str) {
-    let matches = cmd(name, about, version).get_matches();
+pub enum CliArgs {
+    Allow(Vec<String>),
+    Block(Vec<String>),
+    Redirect(Vec<String>),
+    Sources(Vec<String>),
+}
 
+impl CliApp {
+    pub fn init(name: &'static str, about: &'static str, version: &'static str) -> Self {
+        let app = cli_app(name, about, version);
+        app
+    }
+    pub fn run(&self, parent: &'static str) {
+        // println!("host: {:?}", host_path());
+        run_app(self, parent);
+    }
+}
+
+fn run_app(app: &CliApp, parent: &'static str) {
+    let parent: StoragePath = [dirs::data_dir().unwrap(), parent.into()]
+        .into_iter()
+        .collect::<PathBuf>()
+        .into();
+    let etc_host_content = || read_file(host_path()).unwrap();
+    match app {
+        CliApp::Add(v) => match v {
+            CliArgs::Allow(u) => {
+                let args: Vec<&str> = u.into_iter().map(|f| f.as_str()).collect();
+                let _ = commands::add::allow(
+                    args,
+                    etc_host_content()
+                        .lines()
+                        .into_iter()
+                        .map(|f| f.as_ref())
+                        .collect(),
+                    &parent,
+                );
+            }
+            CliArgs::Block(u) => {
+                let args: Vec<&str> = u.into_iter().map(|f| f.as_str()).collect();
+                let _ = commands::add::block(
+                    args,
+                    etc_host_content()
+                        .lines()
+                        .into_iter()
+                        .map(|f| f.as_ref())
+                        .collect(),
+                    &parent,
+                );
+            }
+            CliArgs::Redirect(u) => {
+                println!("Add to redirect: {:?}", u);
+            }
+            CliArgs::Sources(u) => {
+                println!("Add to source: {:?}", u);
+            }
+        },
+        CliApp::Remove(v) => match v {
+            CliArgs::Allow(u) => {
+                println!("Remove to Allow: {:?}", u);
+            }
+            CliArgs::Block(u) => {
+                println!("Remove to Block: {:?}", u);
+            }
+            CliArgs::Redirect(u) => {
+                println!("Remove to redirect: {:?}", u);
+            }
+            CliArgs::Sources(u) => {
+                println!("Remove to source: {:?}", u);
+            }
+        },
+        CliApp::Import => {
+            todo!()
+        }
+        CliApp::Export => {
+            todo!()
+        }
+        CliApp::Show => {
+            todo!()
+        }
+        CliApp::UpdateSources => {
+            todo!()
+        }
+        CliApp::UpdateSelf => {
+            todo!()
+        }
+    }
+}
+
+pub fn cli_app(name: &'static str, about: &'static str, version: &'static str) -> CliApp {
+    let matches = cmd(name, about, version).get_matches();
     match matches.subcommand() {
         Some(("add", add_matches)) => {
-            if add_matches.contains_id("block") {
-                let args: Vec<_> = add_matches
-                    .get_many::<String>("block")
-                    .unwrap()
-                    .map(|v| v.as_str())
-                    .collect();
-                //let etc_hosts_lines =
-            }
+            if add_matches.contains_id("allow") {
+                return CliApp::Add(CliArgs::Allow(
+                    add_matches
+                        .get_many::<String>("allow")
+                        .unwrap()
+                        .map(|f| f.to_owned())
+                        .collect(),
+                ));
+            } else if add_matches.contains_id("block") {
+                return CliApp::Add(CliArgs::Block(
+                    add_matches
+                        .get_many::<String>("block")
+                        .unwrap()
+                        .map(|f| f.to_owned())
+                        .collect(),
+                ));
+            } else if add_matches.contains_id("redirect") {
+                return CliApp::Add(CliArgs::Redirect(
+                    add_matches
+                        .get_many::<String>("redirect")
+                        .unwrap()
+                        .map(|f| f.to_owned())
+                        .collect(),
+                ));
+            } else if add_matches.contains_id("sources") {
+                return CliApp::Add(CliArgs::Sources(
+                    add_matches
+                        .get_many::<String>("sources")
+                        .unwrap()
+                        .map(|f| f.to_owned())
+                        .collect(),
+                ));
+            };
+            unreachable!()
         }
-        Some(("remove", _remove_matches)) => {}
-        Some(("import", _import_matches)) => {}
-        Some(("export", _export_matches)) => {}
-        Some(("show", _show_matches)) => {}
+        Some(("remove", remove_matches)) => {
+            if remove_matches.contains_id("allow") {
+                return CliApp::Remove(CliArgs::Allow(
+                    remove_matches
+                        .get_many::<String>("allow")
+                        .unwrap()
+                        .map(|f| f.to_owned())
+                        .collect(),
+                ));
+            } else if remove_matches.contains_id("block") {
+                return CliApp::Remove(CliArgs::Block(
+                    remove_matches
+                        .get_many::<String>("block")
+                        .unwrap()
+                        .map(|f| f.to_owned())
+                        .collect(),
+                ));
+            } else if remove_matches.contains_id("redirect") {
+                return CliApp::Remove(CliArgs::Redirect(
+                    remove_matches
+                        .get_many::<String>("redirect")
+                        .unwrap()
+                        .map(|f| f.to_owned())
+                        .collect(),
+                ));
+            } else if remove_matches.contains_id("sources") {
+                return CliApp::Remove(CliArgs::Sources(
+                    remove_matches
+                        .get_many::<String>("sources")
+                        .unwrap()
+                        .map(|f| f.to_owned())
+                        .collect(),
+                ));
+            };
+            unreachable!()
+        }
+        Some(("import", _import_matches)) => {
+            todo!()
+        }
+        Some(("export", _export_matches)) => {
+            todo!()
+        }
+        Some(("show", _show_matches)) => {
+            todo!()
+        }
         _ => unreachable!(),
     }
 }

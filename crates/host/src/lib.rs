@@ -1,4 +1,5 @@
-use host_utils::{etc_host_reader, Container, HashList, StoragePath, H, R};
+use host_utils::{etc_host_reader, HashList, H, R};
+use storage::{Container, StoragePath};
 
 #[allow(unused)]
 pub struct App<'a> {
@@ -6,15 +7,10 @@ pub struct App<'a> {
     host: HashList<H<'a>>,
     redirect: HashList<R<'a>>,
 }
-/*
+
 impl<'a> App<'a> {
-    pub fn init(storage: Container<'a>, etc_host: &'a str) -> Self {
-        let (h, r) = etc_host_reader(etc_host);
-        Self {
-            storage,
-            host: h,
-            redirect: r,
-        }
+    pub fn init_add_block(storage: Container<'a>, etc_host: &'a str) -> Self {
+        todo!()
     }
 
     pub fn insert_allow(&mut self, value: &'a H) {
@@ -30,4 +26,4 @@ impl<'a> App<'a> {
     pub fn save(&self, path: StoragePath) -> std::io::Result<()> {
         todo!()
     }
-}*/
+}

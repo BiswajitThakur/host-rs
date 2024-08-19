@@ -1,20 +1,15 @@
+use std::collections::HashSet;
+
 use crate::{HashList, H, R};
 
-pub fn etc_host_reader<'a>(value: &'a str, h: &mut HashList<H<'a>>, r: &mut HashList<R<'a>>) {
-    //let lines: Vec<&str> = value.lines().into_iter().collect();
-    // let mut h = HashList::with_capacity(if let Cap::Capacity(v) = h_cap {
-    //    v
-    // } else {
-    //    lines.len()
-    // });
-    // let mut r = HashList::with_capacity(if let Cap::Capacity(v) = r_cap { v } else { 521 });
+pub fn etc_host_reader<'a>(lines: &Vec<&'a str>, h: &mut HashSet<H<'a>>) {
     let mut host_flag = false;
-    let mut redirect_flag = false;
+    // let mut redirect_flag = false;
     let start_host = "#host-rs-beg#";
     let end_host = "#host-rs-end#";
-    let start_redirect = "#r-host-rs-beg#";
-    let end_redirect = "#r-host-rs-end#";
-    for i in value.lines().into_iter() {
+    // let start_redirect = "#r-host-rs-beg#";
+    // let end_redirect = "#r-host-rs-end#";
+    for i in lines.iter() {
         let j = i.trim();
         if host_flag {
             if j == end_host {
@@ -22,10 +17,11 @@ pub fn etc_host_reader<'a>(value: &'a str, h: &mut HashList<H<'a>>, r: &mut Hash
                 continue;
             };
             if let Ok(v) = H::try_from(j) {
-                h.push(v);
+                h.insert(v);
             };
             continue;
         };
+        /*
         if redirect_flag {
             if j == end_redirect {
                 redirect_flag = false;
@@ -36,16 +32,18 @@ pub fn etc_host_reader<'a>(value: &'a str, h: &mut HashList<H<'a>>, r: &mut Hash
             };
             continue;
         };
+        */
         if j == start_host {
             host_flag = true;
-        } else if j == start_redirect {
-            redirect_flag = true;
         };
+        /* else if j == start_redirect {
+            redirect_flag = true;
+        }; */
     }
 }
 
-pub fn host_reader<'a>(value: &'a str, h: &mut HashList<H<'a>>) {
-    for line in value.lines().into_iter() {
+pub fn host_reader<'a>(lines: Vec<&'a str>, h: &mut HashList<H<'a>>) {
+    for line in lines.iter() {
         if let Ok(v) = H::try_from(line.trim()) {
             h.push(v);
         };

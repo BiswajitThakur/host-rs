@@ -27,6 +27,9 @@ where
     pub fn remove(&mut self, value: &T) -> bool {
         self.0.remove(value)
     }
+    pub fn as_set(&self) -> &HashSet<T> {
+        &self.0
+    }
 }
 
 /*
@@ -87,6 +90,18 @@ impl<T: Eq + Hash> From<Vec<T>> for HashList<T> {
             v.push(i);
         }
         v
+    }
+}
+
+impl<'a> From<Vec<&'a str>> for HashList<H<'a>> {
+    fn from(value: Vec<&'a str>) -> Self {
+        let mut u = HashSet::with_capacity(value.len());
+        for i in value.into_iter() {
+            if let Ok(v) = H::try_from(i) {
+                u.insert(v);
+            };
+        }
+        Self(u)
     }
 }
 

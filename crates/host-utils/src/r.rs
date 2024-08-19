@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::is_comment;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct R<'a> {
     pub from: &'a str,
     pub to: &'a str,

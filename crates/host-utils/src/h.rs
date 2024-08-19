@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::is_comment;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct H<'a>(&'a str);
 
 impl<'a> TryFrom<&'a str> for H<'a> {

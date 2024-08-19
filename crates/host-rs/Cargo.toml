@@ -5,5 +5,3 @@ edition.workspace = true
 
 [dependencies]
 cli = { path = "../cli" }
-clap = { workspace = true }
-host-utils = { path = "../host-utils" }
