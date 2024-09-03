@@ -6,6 +6,6 @@ edition.workspace = true
 [dependencies]
 clap = { workspace = true }
 dirs = { workspace = true }
-host = { path = "../host" }
-storage = { path = "../storage"}
 host-utils = { path = "../host-utils" }
+anyhow = { workspace = true }
+crossterm = { workspace = true }

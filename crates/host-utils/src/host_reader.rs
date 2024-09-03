@@ -1,15 +1,12 @@
 use std::collections::HashSet;
 
-use crate::{HashList, H, R};
+use crate::{HashList, H};
 
 pub fn etc_host_reader<'a>(lines: &Vec<&'a str>, h: &mut HashSet<H<'a>>) {
     let mut host_flag = false;
-    // let mut redirect_flag = false;
     let start_host = "#host-rs-beg#";
     let end_host = "#host-rs-end#";
-    // let start_redirect = "#r-host-rs-beg#";
-    // let end_redirect = "#r-host-rs-end#";
-    for i in lines.iter() {
+    for i in lines {
         let j = i.trim();
         if host_flag {
             if j == end_host {
@@ -21,24 +18,9 @@ pub fn etc_host_reader<'a>(lines: &Vec<&'a str>, h: &mut HashSet<H<'a>>) {
             };
             continue;
         };
-        /*
-        if redirect_flag {
-            if j == end_redirect {
-                redirect_flag = false;
-                continue;
-            };
-            if let Ok(v) = R::try_from(j) {
-                r.push(v);
-            };
-            continue;
-        };
-        */
         if j == start_host {
             host_flag = true;
         };
-        /* else if j == start_redirect {
-            redirect_flag = true;
-        }; */
     }
 }
 
@@ -51,13 +33,13 @@ pub fn host_reader<'a>(lines: Vec<&'a str>, h: &mut HashList<H<'a>>) {
 }
 
 #[allow(unused)]
-pub fn get_host_from_url<'a>(webs: &'a str) -> Option<&'a str> {
-    let mut webs = webs.trim();
+pub fn get_host_from_url<T: AsRef<str> + ?Sized>(webs: &T) -> Option<&str> {
+    let mut webs = webs.as_ref().trim();
     if let Some(v) = webs.find("http://") {
         if v == 0 {
             webs = &webs[7..];
         };
-    }; // else
+    };
     if let Some(v) = webs.find("https://") {
         if v == 0 {
             webs = &webs[8..];
@@ -80,43 +62,25 @@ pub fn get_host_from_url<'a>(webs: &'a str) -> Option<&'a str> {
         };
     };
     let v = &webs[..end];
-    if is_valid_host(v) {
+    if super::is_valid_host(v) {
         return Some(v);
     };
     None
 }
 
-#[allow(unused)]
-fn is_valid_host(value: &str) -> bool {
-    if value.len() == 0
-        || value.len() > 63
-        || value.starts_with(' ')
-        || value.ends_with(' ')
-        || value.starts_with('.')
-        || value.ends_with('.')
-        || !value.contains('.')
-    {
-        return false;
-    };
-    for c in value.chars() {
-        if (c >= 'A' && c <= 'Z')
-            || (c >= 'a' && c <= 'z')
-            || (c >= '0' && c <= '9')
-            || (c == '.')
-            || (c == '-')
-        {
-            continue;
-        } else {
-            return false;
-        }
-    }
-    true
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-
+    use crate::get_host_from_url;
+    use crate::is_valid_host;
+    /*
+    macro_rules! test_is_valid_host {
+        (test $func:ident;  $left:expr  $right:expr) => {
+            #[test]
+            fn func() {
+                assert_eq!(is_valid_host($left), $right);
+            }
+        };
+    }*/
     #[test]
     fn test_is_valid_host_0() {
         assert_eq!(is_valid_host(""), false);
@@ -149,7 +113,7 @@ mod tests {
 
     #[test]
     fn test_is_valid_host_6() {
-        assert_eq!(is_valid_host("127.0.0.1:8080"), false);
+        assert_eq!(is_valid_host(String::from("127.0.0.1:8080")), false);
     }
 
     #[test]

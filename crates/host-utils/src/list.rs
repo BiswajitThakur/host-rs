@@ -3,11 +3,9 @@ use std::hash::Hash;
 
 use crate::{H, R};
 
-#[allow(unused)]
 #[derive(Debug, PartialEq)]
 pub struct HashList<T: Eq + Hash>(HashSet<T>);
 
-#[allow(unused)]
 impl<T> HashList<T>
 where
     T: Eq + Hash,
@@ -32,19 +30,6 @@ where
     }
 }
 
-/*
-impl<'a> HashList<H<'a>> {
-    pub fn remove(&mut self, value: &'a str) {
-        self.0.remove(&H::new(value));
-    }
-}
-
-impl HashList<R<'_>> {
-    pub fn remove(&mut self, value: &str) {
-        self.0.retain(|r| r.from == value);
-    }
-}
-*/
 impl<T: Eq + Hash> From<HashList<T>> for HashSet<T> {
     fn from(value: HashList<T>) -> Self {
         value.0

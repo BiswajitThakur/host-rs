@@ -209,12 +209,23 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
                         .action(ArgAction::SetTrue),
                 ),
         )
-        .arg(
-            Arg::new("update")
-                .short('u')
-                .long("update")
-                .help("Self update")
-                .action(ArgAction::SetTrue),
+        .subcommand(
+            Command::new("update")
+                .short_flag('u')
+                .long_flag("update")
+                .about("Update sources or self. ")
+                .arg(
+                    Arg::new("sources")
+                        .long("sources")
+                        .help("Update host sources.")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("self")
+                        .long("self")
+                        .help("Self Update")
+                        .action(ArgAction::SetTrue),
+                ),
         )
         .arg(
             Arg::new("uninstall")
