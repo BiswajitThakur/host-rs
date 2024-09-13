@@ -5,10 +5,15 @@ use std::fs;
 use std::path::PathBuf;
 
 use crossterm::style::Stylize;
-use host_utils::{host_path, read_file, Container};
+use host_utils::{download_from_url, host_path, read_file, Container};
 use host_utils::{App, StoragePath};
 
 use crate::cli_ops::cmd;
+
+pub enum UpdateOps {
+    ThisApp,
+    Sources,
+}
 
 pub enum CliApp {
     Add(CliArgs),
@@ -16,7 +21,7 @@ pub enum CliApp {
     Import(CliArgs),
     Export(CliArgs),
     Show,
-    Update,
+    Update(UpdateOps),
 }
 
 pub enum CliArgs {
@@ -249,9 +254,17 @@ fn run_app(app: &CliApp, parent: &'static str) {
         CliApp::Show => {
             todo!()
         }
-        CliApp::Update => {
-            todo!()
-        }
+        CliApp::Update(u) => match u {
+            UpdateOps::Sources => {
+                let urls = my_app.get_sources().into_iter().map(|f| f.as_str());
+                for i in urls {
+                    println!("{}", download_from_url(i).unwrap());
+                }
+            }
+            UpdateOps::ThisApp => {
+                todo!("This features is not yet implemented.")
+            }
+        },
     }
 }
 
@@ -405,8 +418,13 @@ pub fn cli_app(name: &'static str, about: &'static str, version: &'static str) -
         Some(("show", _show_matches)) => {
             todo!()
         }
-        Some(("update", _update_matches)) => {
-            todo!()
+        Some(("update", update_matches)) => {
+            if update_matches.get_flag("self") {
+                return CliApp::Update(UpdateOps::ThisApp);
+            } else if update_matches.get_flag("sources") {
+                return CliApp::Update(UpdateOps::Sources);
+            }
+            unreachable!()
         }
         _ => unreachable!(),
     }

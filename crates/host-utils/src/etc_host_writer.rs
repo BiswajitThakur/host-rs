@@ -96,6 +96,7 @@ where
         stream.write_all(b"\n")?
     }
     stream.write_all(host_b_e.0)?;
+    stream.write_all(b"\n")?;
     for i in h {
         stream.write_all(t)?;
         stream.write_all(i.as_str().as_bytes())?;
@@ -112,6 +113,7 @@ where
         stream.write_all(b"\n")?;
     }
     stream.write_all(redirect_b_e.1)?;
+    stream.write_all(b"\n")?;
     stream.flush()?;
     Ok(())
 }

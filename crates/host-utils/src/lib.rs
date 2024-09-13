@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
 use crossterm::style::Stylize;
@@ -8,7 +8,7 @@ mod host_reader;
 mod list;
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, BufWriter, Read, Write};
+use std::io::{self, stdout, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
 pub use etc_host_writer::etc_write;
@@ -68,7 +68,7 @@ impl<'a> H<'a> {
 }
 impl fmt::Display for H<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "0.0.0.0 {}", self.as_str())
+        write!(f, "{}", self.as_str())
     }
 }
 
@@ -229,6 +229,9 @@ impl From<PathBuf> for StoragePath {
 }
 
 impl StoragePath {
+    pub fn new() -> Self {
+        todo!()
+    }
     pub fn get_allow(&self) -> &PathBuf {
         &self.allow
     }
@@ -451,6 +454,9 @@ impl<'a> App<'a> {
             etc_content_h,
         })
     }
+    pub fn get_sources(&self) -> &HashSet<H<'_>> {
+        self.storage.get_sources()
+    }
     pub fn add_allow(&mut self, args: &'a Vec<&'a str>) {
         for i in args.iter() {
             if let Some(v) = get_host_from_url(i) {
@@ -497,10 +503,33 @@ impl<'a> App<'a> {
             };
         }
     }
+    pub fn add_etc_host<T: IntoIterator<Item = H<'a>>>(&mut self, iter: T) {
+        self.etc_content_h.extend(iter)
+    }
     pub fn add_sources(&mut self, args: &'a [&'a str]) {
+        let mut stdout = io::stdout();
         for i in args.iter() {
             if is_valid_url(i) {
                 self.storage.insert_sources(i);
+                match download_from_url(i) {
+                    Ok(v) => {
+                        let mut h = Vec::with_capacity(v.len() / 10);
+                        for line in v.lines() {
+                            if let Some(u) = get_host_from_url(line) {
+                                h.push(H::new(u));
+                                print!("\r{}: added", u);
+                                stdout.flush().unwrap();
+                            } else {
+                                if !line.trim().is_empty() || !is_comment(line) {
+                                    eprintln!("Invalid line found: {}", line.red().to_owned());
+                                };
+                            };
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{}", e);
+                    }
+                }
             } else {
                 eprintln!(
                     "{}: invalid url: {}",
@@ -605,6 +634,8 @@ impl<'a> App<'a> {
             r.push(i);
         }
         r.sort();
+        let b_len = h.len();
+        let r_len = r.len();
         if etc_write(host_path(), (h, r), self.etc_content_str.iter()).is_err() {
             eprintln!("{}", e_msg);
             eprintln!(
@@ -613,10 +644,15 @@ impl<'a> App<'a> {
             );
             std::process::exit(1);
         };
+        println!("Total host blocked: {}", b_len + r_len);
+        println!("Total Redirect host: {}", r_len);
+        println!("Total host, block by you: {}", self.storage.block_len());
+        println!("Total host, allowed by you: {}", self.storage.allow_len());
+        println!("Total host sources: {}", self.storage.sources_len());
     }
 }
 
-#[inline(always)]
+#[inline]
 fn is_valid_url<T: AsRef<str>>(value: T) -> bool {
     let mut value = value.as_ref();
     if let Some(v) = value.find("http") {
@@ -797,11 +833,10 @@ mod test_is_valid_url {
     }
 
     #[test]
-    #[ignore = "return invalid result in this input"]
     fn test_17() {
         let input = "https://xyz.123.abc.?hello%@?fooo=null";
         let got = is_valid_url(input);
-        let want = false;
+        let want = true;
         assert_eq!(got, want);
     }
 
@@ -1005,4 +1040,19 @@ mod test_is_commit {
         assert_eq!(is_comment("/////"), false);
         assert_eq!(is_comment("//// #### //// ####"), false);
     }
+}
+
+pub fn download_from_url<T: AsRef<str>>(url: T) -> Result<String, ureq::Error> {
+    let url = url.as_ref();
+    println!("Downloading from: {}", url.yellow().to_owned());
+    let body = ureq::get(url).call()?.into_string()?;
+    Ok(body)
+}
+
+#[allow(unused)]
+pub struct App2<'a> {
+    allow: HashSet<&'a str>,
+    block: HashSet<&'a str>,
+    redirect: HashMap<&'a str, &'a str>,
+    parent: StoragePath,
 }

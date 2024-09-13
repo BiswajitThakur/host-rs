@@ -224,6 +224,7 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
                     Arg::new("self")
                         .long("self")
                         .help("Self Update")
+                        .conflicts_with("sources")
                         .action(ArgAction::SetTrue),
                 ),
         )
