@@ -83,42 +83,42 @@ mod tests {
     }*/
     #[test]
     fn test_is_valid_host_0() {
-        assert_eq!(is_valid_host(""), false);
+        assert!(!is_valid_host(""));
     }
 
     #[test]
     fn test_is_valid_host_1() {
-        assert_eq!(is_valid_host("   "), false);
+        assert!(!is_valid_host("   "));
     }
 
     #[test]
     fn test_is_valid_host_2() {
-        assert_eq!(is_valid_host("    .  "), false);
+        assert!(!is_valid_host("    .  "));
     }
 
     #[test]
     fn test_is_valid_host_3() {
-        assert_eq!(is_valid_host("  ;www.github.com-++"), false);
+        assert!(!is_valid_host("  ;www.github.com-++"));
     }
 
     #[test]
     fn test_is_valid_host_4() {
-        assert_eq!(is_valid_host("/q123.com?name=BT"), false);
+        assert!(!is_valid_host("/q123.com?name=BT"));
     }
 
     #[test]
     fn test_is_valid_host_5() {
-        assert_eq!(is_valid_host("example.com"), true);
+        assert!(is_valid_host("example.com"));
     }
 
     #[test]
     fn test_is_valid_host_6() {
-        assert_eq!(is_valid_host(String::from("127.0.0.1:8080")), false);
+        assert!(!is_valid_host(String::from("127.0.0.1:8080")));
     }
 
     #[test]
     fn test_is_valid_host_7() {
-        assert_eq!(is_valid_host("127.0.0.1"), true);
+        assert!(is_valid_host("127.0.0.1"));
     }
 
     #[test]

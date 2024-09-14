@@ -4,8 +4,12 @@ mod commands;
 use std::fs;
 use std::path::PathBuf;
 
+// use anyhow::Ok;
 use crossterm::style::Stylize;
-use host_utils::{download_from_url, host_path, read_file, Container};
+use host_utils::{
+    download_from_url, filter_host_from_vec_str, host_path, is_comment, is_valid_url, read_file,
+    Container,
+};
 use host_utils::{App, StoragePath};
 
 use crate::cli_ops::cmd;
@@ -86,7 +90,35 @@ fn run_app(app: &CliApp, parent: &'static str) {
             }
             CliArgs::Sources(u) => {
                 let args: Vec<&str> = u.iter().map(|f| f.as_str()).collect();
-                my_app.add_sources(&args);
+                let mut valid_urls = Vec::with_capacity(args.len());
+                for url in args.into_iter() {
+                    if is_comment(url) {
+                        continue;
+                    };
+                    if !is_valid_url(url) {
+                        eprintln!("Invalid url: {}", url.dark_red().to_owned());
+                        continue;
+                    };
+                    valid_urls.push(url);
+                }
+                my_app.add_sources(&valid_urls);
+                let downloaded: Vec<Result<String, _>> =
+                    valid_urls.iter().map(download_from_url).collect();
+                let mut downloaded_str: Vec<&str> = Vec::with_capacity(downloaded.len());
+                let mut total_cap = 0;
+                for i in downloaded.iter() {
+                    match i {
+                        Ok(ref t) => {
+                            total_cap += t.len() / 15;
+                            downloaded_str.push(t)
+                        }
+                        Err(ref e) => {
+                            eprintln!("{}", e)
+                        }
+                    }
+                }
+                let hosts = filter_host_from_vec_str(downloaded_str, total_cap);
+                my_app.add_etc_host(hosts);
                 my_app.save();
             }
         },
@@ -116,14 +148,13 @@ fn run_app(app: &CliApp, parent: &'static str) {
             CliArgs::Allow(u) => {
                 let mut strs = Vec::with_capacity(u.len());
                 for p in u.iter() {
-                    let f = fs::read_to_string(p).expect(
-                        format!(
+                    let f = fs::read_to_string(p).unwrap_or_else(|_| {
+                        panic!(
                             "{}: faild to read file: {}",
                             "ERROR".red().bold(),
                             p.clone().italic()
                         )
-                        .as_str(),
-                    );
+                    });
                     strs.push(f);
                 }
                 let mut f = Vec::with_capacity(strs.len() * 500);
@@ -138,14 +169,13 @@ fn run_app(app: &CliApp, parent: &'static str) {
             CliArgs::Block(u) => {
                 let mut strs = Vec::with_capacity(u.len());
                 for p in u.iter() {
-                    let f = fs::read_to_string(p).expect(
-                        format!(
+                    let f = fs::read_to_string(p).unwrap_or_else(|_| {
+                        panic!(
                             "{}: faild to read file: {}",
                             "ERROR".red().bold(),
                             p.clone().italic()
                         )
-                        .as_str(),
-                    );
+                    });
                     strs.push(f);
                 }
                 let mut f = Vec::with_capacity(strs.len() * 500);
@@ -160,14 +190,13 @@ fn run_app(app: &CliApp, parent: &'static str) {
             CliArgs::Redirect(u) => {
                 let mut strs = Vec::with_capacity(u.len());
                 for p in u.iter() {
-                    let f = fs::read_to_string(p).expect(
-                        format!(
+                    let f = fs::read_to_string(p).unwrap_or_else(|_| {
+                        panic!(
                             "{}: faild to read file: {}",
                             "ERROR".red().bold(),
                             p.clone().italic()
                         )
-                        .as_str(),
-                    );
+                    });
                     strs.push(f);
                 }
                 let mut f = Vec::with_capacity(strs.len() * 500);
@@ -185,14 +214,13 @@ fn run_app(app: &CliApp, parent: &'static str) {
             CliArgs::Sources(u) => {
                 let mut strs = Vec::with_capacity(u.len());
                 for p in u.iter() {
-                    let f = fs::read_to_string(p).expect(
-                        format!(
+                    let f = fs::read_to_string(p).unwrap_or_else(|_| {
+                        panic!(
                             "{}: faild to read file: {}",
                             "ERROR".red().bold(),
                             p.clone().italic()
                         )
-                        .as_str(),
-                    );
+                    });
                     strs.push(f);
                 }
                 let mut f = Vec::with_capacity(strs.len() * 500);
@@ -210,8 +238,9 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 let p = PathBuf::from(u[0].clone());
                 if let Some(parent) = p.parent() {
                     if !parent.exists() {
-                        fs::create_dir_all(parent)
-                            .expect(&format!("Faild to create dir: {}", parent.display()));
+                        fs::create_dir_all(parent).unwrap_or_else(|_| {
+                            panic!("Faild to create dir: {}", parent.display())
+                        });
                     };
                 };
                 my_app.export_allow(p);
@@ -221,8 +250,9 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 let p = PathBuf::from(u[0].clone());
                 if let Some(parent) = p.parent() {
                     if !parent.exists() {
-                        fs::create_dir_all(parent)
-                            .expect(&format!("Faild to create dir: {}", parent.display()));
+                        fs::create_dir_all(parent).unwrap_or_else(|_| {
+                            panic!("Faild to create dir: {}", parent.display())
+                        });
                     };
                 };
                 my_app.export_block(p);
@@ -232,8 +262,9 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 let p = PathBuf::from(u[0].clone());
                 if let Some(parent) = p.parent() {
                     if !parent.exists() {
-                        fs::create_dir_all(parent)
-                            .expect(&format!("Faild to create dir: {}", parent.display()));
+                        fs::create_dir_all(parent).unwrap_or_else(|_| {
+                            panic!("Faild to create dir: {}", parent.display())
+                        });
                     };
                 };
                 my_app.export_redirect(p);
@@ -243,8 +274,9 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 let p = PathBuf::from(u[0].clone());
                 if let Some(parent) = p.parent() {
                     if !parent.exists() {
-                        fs::create_dir_all(parent)
-                            .expect(&format!("Faild to create dir: {}", parent.display()));
+                        fs::create_dir_all(parent).unwrap_or_else(|_| {
+                            panic!("Faild to create dir: {}", parent.display())
+                        });
                     };
                 };
                 my_app.export_sources(p);
@@ -256,10 +288,25 @@ fn run_app(app: &CliApp, parent: &'static str) {
         }
         CliApp::Update(u) => match u {
             UpdateOps::Sources => {
-                let urls = my_app.get_sources().into_iter().map(|f| f.as_str());
-                for i in urls {
-                    println!("{}", download_from_url(i).unwrap());
+                let urls = my_app.get_sources().iter().map(|f| f.as_str());
+                let downloaded: Vec<Result<String, _>> = urls.map(download_from_url).collect();
+                let mut downloaded_str: Vec<&str> = Vec::with_capacity(downloaded.len());
+                let mut total_cap = 0;
+                for i in downloaded.iter() {
+                    match i {
+                        Ok(ref t) => {
+                            total_cap += t.len() / 15;
+                            downloaded_str.push(t)
+                        }
+                        Err(ref e) => {
+                            eprintln!("{}", e)
+                        }
+                    }
                 }
+                let hosts = filter_host_from_vec_str(downloaded_str, total_cap);
+                my_app.clear_host();
+                my_app.add_etc_host(hosts);
+                my_app.save();
             }
             UpdateOps::ThisApp => {
                 todo!("This features is not yet implemented.")

@@ -6,6 +6,5 @@ edition.workspace = true
 [dependencies]
 crossterm = { workspace = true }
 dirs = { workspace = true }
-indicatif = { workspace = true }
 ureq = { workspace = true }
 anyhow = { workspace = true }

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use anyhow::Result;
 use crossterm::style::Stylize;
@@ -8,7 +8,7 @@ mod host_reader;
 mod list;
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, stdout, BufWriter, Read, Write};
+use std::io::{self, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
 pub use etc_host_writer::etc_write;
@@ -225,6 +225,12 @@ impl From<PathBuf> for StoragePath {
             redirect: [parent.clone(), "redirect".into()].into_iter().collect(),
             sources: [parent, "soucres".into()].into_iter().collect(),
         }
+    }
+}
+
+impl Default for StoragePath {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -507,29 +513,9 @@ impl<'a> App<'a> {
         self.etc_content_h.extend(iter)
     }
     pub fn add_sources(&mut self, args: &'a [&'a str]) {
-        let mut stdout = io::stdout();
         for i in args.iter() {
             if is_valid_url(i) {
                 self.storage.insert_sources(i);
-                match download_from_url(i) {
-                    Ok(v) => {
-                        let mut h = Vec::with_capacity(v.len() / 10);
-                        for line in v.lines() {
-                            if let Some(u) = get_host_from_url(line) {
-                                h.push(H::new(u));
-                                print!("\r{}: added", u);
-                                stdout.flush().unwrap();
-                            } else {
-                                if !line.trim().is_empty() || !is_comment(line) {
-                                    eprintln!("Invalid line found: {}", line.red().to_owned());
-                                };
-                            };
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("{}", e);
-                    }
-                }
             } else {
                 eprintln!(
                     "{}: invalid url: {}",
@@ -591,7 +577,7 @@ impl<'a> App<'a> {
         self.etc_content_h.clear();
     }
     pub fn impoer_allow(&mut self, args: &'a [&'a str]) {
-        for _ in args.into_iter() {}
+        for _ in args.iter() {}
         todo!()
     }
     pub fn impoer_block(&mut self, _args: &'a [&'a str]) {
@@ -653,7 +639,26 @@ impl<'a> App<'a> {
 }
 
 #[inline]
-fn is_valid_url<T: AsRef<str>>(value: T) -> bool {
+pub fn get_host_from_url_or_host(value: &str) -> Option<&str> {
+    if is_comment(value) {
+        return None;
+    };
+    let v: Vec<_> = value.split_whitespace().collect();
+    if v.is_empty() {
+        return None;
+    };
+    let u = if v.len() == 1 { v[0] } else { v[1] };
+    if is_valid_host(u) {
+        Some(u)
+    } else if is_valid_url(u) {
+        get_host_from_url(u)
+    } else {
+        None
+    }
+}
+
+#[inline]
+pub fn is_valid_url<T: AsRef<str>>(value: T) -> bool {
     let mut value = value.as_ref();
     if let Some(v) = value.find("http") {
         if v != 0 {
@@ -693,7 +698,7 @@ fn is_valid_url<T: AsRef<str>>(value: T) -> bool {
             present_dot = true;
             continue;
         };
-        if !matches!(v, 'a'..='z' | 'A'..='Z' | '0'..='9' | '-') {
+        if !matches!(v, 'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_') {
             return false;
         };
     }
@@ -873,11 +878,11 @@ mod test_is_valid_url {
     }
 }
 
-#[inline(always)]
+#[inline]
 fn is_valid_host<T: AsRef<str>>(value: T) -> bool {
     let value = value.as_ref();
     if value.is_empty()
-        || value.len() > 63
+        // || value.len() > 63
         || value.starts_with(' ')
         || value.ends_with(' ')
         || value.starts_with('.')
@@ -892,6 +897,7 @@ fn is_valid_host<T: AsRef<str>>(value: T) -> bool {
             || c.is_ascii_digit()
             || (c == '.')
             || (c == '-')
+            || (c == '_')
         {
             continue;
         } else {
@@ -1017,28 +1023,28 @@ mod test_is_commit {
 
     #[test]
     fn test_1() {
-        assert_eq!(is_comment(""), true);
-        assert_eq!(is_comment("     "), true);
-        assert_eq!(is_comment("#"), true);
-        assert_eq!(is_comment("####"), true);
-        assert_eq!(is_comment("   #"), true);
-        assert_eq!(is_comment("# "), true);
-        assert_eq!(is_comment("#    "), true);
-        assert_eq!(is_comment("##    "), true);
-        assert_eq!(is_comment("   #   "), true);
-        assert_eq!(is_comment("   ####    "), true);
-        assert_eq!(is_comment("# hel54..-+lo"), true);
-        assert_eq!(is_comment("    # hi..iiii"), true);
-        assert_eq!(is_comment("#### testing..."), true);
-        assert_eq!(is_comment("# te..st # ++test #"), true);
-        assert_eq!(is_comment("   ##3 hlo"), true);
-        assert_eq!(is_comment("hii #"), false);
-        assert_eq!(is_comment("    testing # testing"), false);
-        assert_eq!(is_comment("    rust   #"), false);
-        assert_eq!(is_comment("// hello.::+-"), false);
-        assert_eq!(is_comment("<!--html#css#js#-->"), false);
-        assert_eq!(is_comment("/////"), false);
-        assert_eq!(is_comment("//// #### //// ####"), false);
+        assert!(is_comment(""));
+        assert!(is_comment("     "));
+        assert!(is_comment("#"));
+        assert!(is_comment("####"));
+        assert!(is_comment("   #"));
+        assert!(is_comment("# "));
+        assert!(is_comment("#    "));
+        assert!(is_comment("##    "));
+        assert!(is_comment("   #   "));
+        assert!(is_comment("   ####    "));
+        assert!(is_comment("# hel54..-+lo"));
+        assert!(is_comment("    # hi..iiii"));
+        assert!(is_comment("#### testing..."));
+        assert!(is_comment("# te..st # ++test #"));
+        assert!(is_comment("   ##3 hlo"));
+        assert!(!is_comment("hii #"));
+        assert!(!is_comment("    testing # testing"));
+        assert!(!is_comment("    rust   #"));
+        assert!(!is_comment("// hello.::+-"));
+        assert!(!is_comment("<!--html#css#js#-->"));
+        assert!(!is_comment("/////"));
+        assert!(!is_comment("//// #### //// ####"));
     }
 }
 
@@ -1046,13 +1052,38 @@ pub fn download_from_url<T: AsRef<str>>(url: T) -> Result<String, ureq::Error> {
     let url = url.as_ref();
     println!("Downloading from: {}", url.yellow().to_owned());
     let body = ureq::get(url).call()?.into_string()?;
+    println!("Download success");
     Ok(body)
 }
 
-#[allow(unused)]
-pub struct App2<'a> {
-    allow: HashSet<&'a str>,
-    block: HashSet<&'a str>,
-    redirect: HashMap<&'a str, &'a str>,
-    parent: StoragePath,
+pub fn filter_host_from_vec_str(value: Vec<&str>, result_cap: usize) -> Vec<H> {
+    let mut hosts = Vec::with_capacity(result_cap);
+    for i in value {
+        for line in i.lines() {
+            if is_comment(line) {
+                continue;
+            };
+            if let Some(ht) = get_host_from_url_or_host(line) {
+                hosts.push(H::new(ht));
+            } else {
+                let e: Vec<_> = line.split_whitespace().collect();
+                if e.len() == 1 {
+                    eprintln!(
+                        "Invalid host or url: {}",
+                        line.italic().bold().dark_red().to_owned()
+                    );
+                } else {
+                    let left = line.find(e[1]).unwrap();
+                    let right = left + e[1].len();
+                    eprintln!(
+                        "Invalid host or url: {}{}{}",
+                        line[0..left].red().to_owned(),
+                        line[left..right].italic().bold().dark_red().to_owned(),
+                        line[right..].red().to_owned()
+                    );
+                }
+            }
+        }
+    }
+    hosts
 }
