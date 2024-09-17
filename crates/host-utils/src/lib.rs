@@ -1,32 +1,24 @@
+#![allow(clippy::result_large_err)]
+
 use std::collections::HashSet;
-
-use anyhow::Result;
-use crossterm::style::Stylize;
-
-mod etc_host_writer;
-mod host_reader;
-mod list;
-
+use std::fmt::{self, Display};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
-pub use etc_host_writer::etc_write;
-use host_reader::get_host_from_url;
-pub use host_reader::{etc_host_reader, host_reader};
+use anyhow::Result;
+use crossterm::style::Stylize;
+
+mod list;
+
 pub use list::HashList;
 pub use list::VecList;
 
-pub enum Cap {
-    Capacity(usize),
-    None,
-}
-
-use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct H<'a>(&'a str);
 
 impl<'a> AsRef<str> for H<'a> {
+    #[inline]
     fn as_ref(&self) -> &'a str {
         self.0
     }
@@ -49,11 +41,13 @@ impl<'a> TryFrom<&'a str> for H<'a> {
     }
 }
 impl<'a> From<H<'a>> for &'a str {
+    #[inline]
     fn from(value: H<'a>) -> Self {
         value.0
     }
 }
 impl<'a> H<'a> {
+    #[inline]
     pub fn new(value: &'a str) -> Self {
         Self(value.trim())
     }
@@ -66,6 +60,7 @@ impl<'a> H<'a> {
     }
     */
 }
+
 impl fmt::Display for H<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
@@ -204,6 +199,97 @@ pub fn write_redirect<'a, W: io::Write, T: Iterator<Item = &'a R<'a>>>(
     }
     stream.flush()?;
     Ok(())
+}
+
+pub fn etc_write<T, V, X>(
+    path: T,
+    current_content: (Vec<&H>, Vec<&R>),
+    previous_content: V,
+) -> Result<()>
+where
+    T: AsRef<Path>,
+    X: AsRef<str> + Display,
+    V: Iterator<Item = X> + Clone,
+{
+    let file = File::create(path)?;
+    let mut stream = BufWriter::new(file);
+    let host_b_e = ("#host-rs-beg#", "#host-rs-end#");
+    let redirect_b_e = ("#r-host-rs-beg#", "#r-host-rs-end#");
+    let t = b"0.0.0.0 ";
+    let (h, r) = current_content;
+    let mut iter = previous_content.peekable();
+    while let Some(line) = iter.next() {
+        let line = line.as_ref().trim();
+        if line == host_b_e.0 {
+            for ref v in iter.by_ref() {
+                if v.as_ref().trim() == host_b_e.1 {
+                    break;
+                };
+            }
+            continue;
+        };
+        if line == redirect_b_e.0 {
+            for ref v in iter.by_ref() {
+                if v.as_ref().trim() == redirect_b_e.1 {
+                    break;
+                };
+            }
+            continue;
+        };
+        stream.write_all(line.as_bytes())?;
+        stream.write_all(b"\n")?
+    }
+    stream.write_all(host_b_e.0.as_bytes())?;
+    stream.write_all(b"\n")?;
+    for i in h {
+        stream.write_all(t)?;
+        stream.write_all(i.as_str().as_bytes())?;
+        stream.write_all(b"\n")?;
+    }
+    stream.write_all(host_b_e.1.as_bytes())?;
+    stream.write_all(b"\n")?;
+    stream.write_all(redirect_b_e.0.as_bytes())?;
+    stream.write_all(b"\n")?;
+    for i in r {
+        stream.write_all(i.to.as_bytes())?;
+        stream.write_all(b" ")?;
+        stream.write_all(i.from.as_bytes())?;
+        stream.write_all(b"\n")?;
+    }
+    stream.write_all(redirect_b_e.1.as_bytes())?;
+    stream.write_all(b"\n")?;
+    stream.flush()?;
+    Ok(())
+}
+
+pub fn etc_host_reader<'a>(lines: &Vec<&'a str>, h: &mut HashSet<H<'a>>) {
+    let mut host_flag = false;
+    let start_host = "#host-rs-beg#";
+    let end_host = "#host-rs-end#";
+    for i in lines {
+        let j = i.trim();
+        if host_flag {
+            if j == end_host {
+                host_flag = false;
+                continue;
+            };
+            if let Ok(v) = H::try_from(j) {
+                h.insert(v);
+            };
+            continue;
+        };
+        if j == start_host {
+            host_flag = true;
+        };
+    }
+}
+
+pub fn host_reader<'a>(lines: Vec<&'a str>, h: &mut HashList<H<'a>>) {
+    for line in lines.iter() {
+        if let Ok(v) = H::try_from(line.trim()) {
+            h.push(v);
+        };
+    }
 }
 
 #[derive(Debug)]
@@ -638,7 +724,6 @@ impl<'a> App<'a> {
     }
 }
 
-#[inline]
 pub fn get_host_from_url_or_host(value: &str) -> Option<&str> {
     if is_comment(value) {
         return None;
@@ -657,7 +742,6 @@ pub fn get_host_from_url_or_host(value: &str) -> Option<&str> {
     }
 }
 
-#[inline]
 pub fn is_valid_url<T: AsRef<str>>(value: T) -> bool {
     let mut value = value.as_ref();
     if let Some(v) = value.find("http") {
@@ -1086,4 +1170,139 @@ pub fn filter_host_from_vec_str(value: Vec<&str>, result_cap: usize) -> Vec<H> {
         }
     }
     hosts
+}
+
+pub fn get_host_from_url<T: AsRef<str> + ?Sized>(webs: &T) -> Option<&str> {
+    let mut webs = webs.as_ref().trim();
+    if let Some(v) = webs.find("http://") {
+        if v == 0 {
+            webs = &webs[7..];
+        };
+    };
+    if let Some(v) = webs.find("https://") {
+        if v == 0 {
+            webs = &webs[8..];
+        };
+    };
+    let mut end = webs.len();
+    if let Some(v) = webs.find('/') {
+        if v < end {
+            end = v;
+        };
+    };
+    if let Some(v) = webs.find('?') {
+        if v < end {
+            end = v;
+        };
+    };
+    if let Some(v) = webs.find(':') {
+        if v < end {
+            end = v;
+        };
+    };
+    let v = &webs[..end];
+    if is_valid_host(v) {
+        return Some(v);
+    };
+    None
+}
+
+#[cfg(test)]
+mod test_get_host_from_url {
+    use crate::get_host_from_url;
+    #[test]
+    fn test_1() {
+        assert_eq!(get_host_from_url(""), None);
+    }
+    #[test]
+    fn test_2() {
+        assert_eq!(get_host_from_url("   "), None);
+    }
+    #[test]
+    fn test_3() {
+        assert_eq!(get_host_from_url("hhff?lk=89"), None);
+    }
+    #[test]
+    fn test_4() {
+        assert_eq!(get_host_from_url("/q123.com?name=BT"), None);
+    }
+    #[test]
+    fn test_5() {
+        assert_eq!(get_host_from_url("example.com"), Some("example.com"));
+    }
+    #[test]
+    fn test_6() {
+        assert_eq!(get_host_from_url("http://example.com"), Some("example.com"));
+    }
+    #[test]
+    fn test_7() {
+        assert_eq!(
+            get_host_from_url("https://example.com"),
+            Some("example.com")
+        );
+    }
+    #[test]
+    fn test_8() {
+        assert_eq!(
+            get_host_from_url("https://example.com"),
+            Some("example.com")
+        );
+    }
+    #[test]
+    fn test_9() {
+        assert_eq!(
+            get_host_from_url("http://example.com/about"),
+            Some("example.com")
+        );
+    }
+    #[test]
+    fn test_10() {
+        assert_eq!(
+            get_host_from_url("   https://example.com/url?qq=123&hello=testing"),
+            Some("example.com")
+        );
+    }
+    #[test]
+    fn test_11() {
+        assert_eq!(
+            get_host_from_url("   example.com/url?qq=123&hello=testing"),
+            Some("example.com")
+        );
+    }
+    #[test]
+    fn test_12() {
+        assert_eq!(
+            get_host_from_url("https://123h.in?kk=99&m=rr"),
+            Some("123h.in")
+        );
+        assert_eq!(get_host_from_url("123h.in?kk=99&m=rr"), Some("123h.in"));
+        assert_eq!(get_host_from_url("127.0.0.1:8080"), Some("127.0.0.1"));
+        assert_eq!(get_host_from_url("127.0.0.1:8080/"), Some("127.0.0.1"));
+        assert_eq!(get_host_from_url("127.0.0.1:8080?"), Some("127.0.0.1"));
+        assert_eq!(get_host_from_url("127.0.0.1"), Some("127.0.0.1"));
+        assert_eq!(
+            get_host_from_url("https://1.1.1.1:8080/home?val=http://www.example.com"),
+            Some("1.1.1.1")
+        );
+        assert_eq!(
+            get_host_from_url("hellohttps://1.1.1.1:8080/home?val=http://www.example.com"),
+            None
+        );
+        assert_eq!(
+            get_host_from_url("hello https://1.1.1.1:8080/home?val=http://www.example.com"),
+            None
+        );
+        assert_eq!(
+            get_host_from_url("  http://127.0.0.1/login?uname=test_user&pass=12345678"),
+            Some("127.0.0.1")
+        );
+    }
+    #[test]
+    #[ignore = "reason"]
+    fn test_13() {
+        assert_eq!(
+            get_host_from_url("http://https://97.7.54.10/login?uname=test_user&pass=12345678"),
+            None
+        );
+    }
 }

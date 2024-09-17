@@ -4,4 +4,8 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-cli = { path = "../cli" }
+# cli = { path = "../cli" }
+host-utils = { path = "../host-utils" }
+crossterm = { workspace = true }
+dirs = { workspace = true }
+clap = { workspace = true }

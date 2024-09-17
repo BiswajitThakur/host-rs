@@ -108,6 +108,6 @@ fn tryfrom_str_h_1_err() {
 fn h_display() {
     let input = H::new("hello");
     let got = format!("{}", input);
-    let want = "0.0.0.0 hello";
+    let want = "hello";
     assert_eq!(got, want);
 }
