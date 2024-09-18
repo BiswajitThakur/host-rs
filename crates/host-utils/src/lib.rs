@@ -3,22 +3,280 @@
 use std::collections::HashSet;
 use std::fmt::{self, Display};
 use std::fs::{self, File, OpenOptions};
+use std::hash::Hash;
 use std::io::{self, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use crossterm::style::Stylize;
 
-mod list;
+#[derive(Debug, PartialEq)]
+pub struct HashList<T: Eq + Hash>(HashSet<T>);
 
-pub use list::HashList;
-pub use list::VecList;
+impl<T> HashList<T>
+where
+    T: Eq + Hash,
+{
+    pub fn new() -> Self {
+        Self(HashSet::new())
+    }
+    pub fn capacity(&self) -> usize {
+        self.0.capacity()
+    }
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(HashSet::with_capacity(capacity))
+    }
+    pub fn push(&mut self, value: T) {
+        self.0.insert(value);
+    }
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+    pub fn remove(&mut self, value: &T) -> bool {
+        self.0.remove(value)
+    }
+    pub fn as_set(&self) -> &HashSet<T> {
+        &self.0
+    }
+}
+
+impl<T: Eq + Hash> From<HashList<T>> for HashSet<T> {
+    fn from(value: HashList<T>) -> Self {
+        value.0
+    }
+}
+#[test]
+fn from_hoshlist_hashset() {
+    let input = HashList(HashSet::from([H::new("hello"), H::new("world")]));
+    let got: HashSet<H> = input.into();
+    let want = HashSet::from([H::new("hello"), H::new("world")]);
+    assert_eq!(got, want);
+}
+
+impl<T: Eq + Hash> From<HashList<T>> for Vec<T> {
+    fn from(value: HashList<T>) -> Self {
+        let mut v = Vec::with_capacity(value.capacity());
+        for i in value.0.into_iter() {
+            v.push(i);
+        }
+        v
+    }
+}
+
+impl<T: Eq + Hash> From<HashSet<T>> for HashList<T> {
+    fn from(value: HashSet<T>) -> Self {
+        Self(value)
+    }
+}
+#[test]
+fn from_hashset_hashlist() {
+    let want = HashList(HashSet::from([H::new("hello"), H::new("world")]));
+    let got: HashList<H> = HashSet::from([H::new("hello"), H::new("world")]).into();
+    assert_eq!(got, want);
+    let got: HashList<&str> = HashSet::from(["hello", "world"]).into();
+    let want = HashList::from(HashSet::from(["hello", "world"]));
+    assert_eq!(got, want);
+}
+
+impl<T: Eq + Hash> From<Vec<T>> for HashList<T> {
+    fn from(value: Vec<T>) -> Self {
+        let mut v = HashList::with_capacity(value.len());
+        for i in value.into_iter() {
+            v.push(i);
+        }
+        v
+    }
+}
+
+impl<'a> From<Vec<&'a str>> for HashList<H<'a>> {
+    fn from(value: Vec<&'a str>) -> Self {
+        let mut u = HashSet::with_capacity(value.len());
+        for i in value.into_iter() {
+            if let Ok(v) = H::try_from(i) {
+                u.insert(v);
+            };
+        }
+        Self(u)
+    }
+}
+
+impl<'a, T: Eq + Hash + TryFrom<&'a str>> From<&'a str> for HashList<T> {
+    fn from(value: &'a str) -> Self {
+        let lines: Vec<&str> = value.lines().collect();
+        let mut r = HashSet::with_capacity(lines.len());
+        for line in lines.into_iter() {
+            if let Ok(v) = T::try_from(line) {
+                r.insert(v);
+            };
+        }
+        Self(r)
+    }
+}
+#[test]
+fn test_from_str_hashlist_t() {
+    let input = r#"
+example.com
+
+127.0.0.1     github.com
+www.google.com
+            "#;
+    let got = HashList::from(input);
+    let want = HashList::from(HashSet::from([
+        H::new("example.com"),
+        H::new("github.com"),
+        H::new("www.google.com"),
+    ]));
+    assert_eq!(got, want);
+}
+
+#[derive(Debug, PartialEq)]
+pub struct VecList<T>(Vec<T>);
+
+impl<T> VecList<T> {
+    pub fn capacity(&self) -> usize {
+        self.0.capacity()
+    }
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(Vec::with_capacity(capacity))
+    }
+    pub fn push(&mut self, value: T) {
+        self.0.push(value);
+    }
+    pub fn as_vec(self) -> Vec<T> {
+        self.0
+    }
+}
+
+impl<'a, T> From<&'a str> for VecList<T>
+where
+    T: TryFrom<&'a str>,
+{
+    fn from(value: &'a str) -> Self {
+        let lines = value.lines();
+        let mut result: Vec<T> = Vec::with_capacity(1024);
+        for line in lines {
+            if let Ok(v) = T::try_from(line) {
+                result.push(v);
+            };
+        }
+        Self(result)
+    }
+}
+
+impl<'a> From<Vec<&'a str>> for VecList<&'a str> {
+    fn from(value: Vec<&'a str>) -> Self {
+        Self(value)
+    }
+}
+
+impl<'a> From<Vec<H<'a>>> for VecList<H<'a>> {
+    fn from(value: Vec<H<'a>>) -> Self {
+        Self(value)
+    }
+}
+
+impl<'a> From<Vec<R<'a>>> for VecList<R<'a>> {
+    fn from(value: Vec<R<'a>>) -> Self {
+        Self(value)
+    }
+}
+
+impl<'a> From<HashSet<&'a str>> for VecList<&'a str> {
+    fn from(value: HashSet<&'a str>) -> Self {
+        let mut v = Vec::with_capacity(value.capacity());
+        for i in value.iter() {
+            v.push(*i);
+        }
+        Self(v)
+    }
+}
+
+impl<T> From<VecList<T>> for Vec<T> {
+    fn from(value: VecList<T>) -> Self {
+        value.0
+    }
+}
+
+impl<T> From<VecList<T>> for HashSet<T>
+where
+    T: PartialEq + Eq + Hash,
+{
+    fn from(value: VecList<T>) -> Self {
+        let mut v: HashSet<T> = HashSet::with_capacity(value.capacity());
+        for i in value.0.into_iter() {
+            v.insert(i);
+        }
+        v
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::H;
+    use crate::R;
+
+    use super::*;
+
+    #[test]
+    fn test_list_vec_rdr() {
+        let input = r#"
+example.com
+
+github.com
+www.google.com
+            "#;
+        let rdr: VecList<H> = VecList::from(input);
+        let got: Vec<H> = rdr.into();
+        let want = vec![
+            H::new("example.com"),
+            H::new("github.com"),
+            H::new("www.google.com"),
+        ];
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_list_set_rdr() {
+        let input = r#"
+example.com
+
+github.com
+www.google.com
+            "#;
+        let rdr: VecList<H> = VecList::from(input);
+        let got: HashSet<H> = rdr.into();
+        let want = HashSet::from([
+            H::new("example.com"),
+            H::new("github.com"),
+            H::new("www.google.com"),
+        ]);
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_redirect_vec_rdr() {
+        let input = r#"
+hello   hiiii
+
+   abcd efg  
+ xyz      zzz
+        "#;
+        let rdr: VecList<R> = VecList::from(input);
+        let got: HashSet<R> = rdr.into();
+        let want: HashSet<R> = HashSet::from([
+            R::new("hello", "hiiii"),
+            R::new("abcd", "efg"),
+            R::new("xyz", "zzz"),
+        ]);
+        assert_eq!(got, want);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct H<'a>(&'a str);
 
 impl<'a> AsRef<str> for H<'a> {
-    #[inline]
     fn as_ref(&self) -> &'a str {
         self.0
     }
@@ -41,13 +299,11 @@ impl<'a> TryFrom<&'a str> for H<'a> {
     }
 }
 impl<'a> From<H<'a>> for &'a str {
-    #[inline]
     fn from(value: H<'a>) -> Self {
         value.0
     }
 }
 impl<'a> H<'a> {
-    #[inline]
     pub fn new(value: &'a str) -> Self {
         Self(value.trim())
     }
@@ -338,14 +594,22 @@ impl StoragePath {
     }
 }
 
-pub struct Container<'a> {
+pub struct UserData<'a> {
     allow: HashSet<H<'a>>,
     block: HashSet<H<'a>>,
     redirect: HashSet<R<'a>>,
     sources: HashSet<H<'a>>,
 }
 
-impl<'a> Container<'a> {
+impl<'a> UserData<'a> {
+    pub fn new() -> Self {
+        Self {
+            allow: HashSet::new(),
+            block: HashSet::new(),
+            redirect: HashSet::new(),
+            sources: HashSet::new(),
+        }
+    }
     pub fn init(allow: &'a str, block: &'a str, redirect: &'a str, soucres: &'a str) -> Self {
         Self {
             allow: HashList::from(allow).into(),
@@ -354,7 +618,6 @@ impl<'a> Container<'a> {
             sources: HashList::from(soucres).into(),
         }
     }
-
     pub fn allow_cap(&self) -> usize {
         self.allow.capacity()
     }
@@ -391,21 +654,28 @@ impl<'a> Container<'a> {
         };
     }
     pub fn insert_allow_h(&mut self, value: H<'a>) {
-        self.redirect.retain(|r| r.from == value.as_str());
+        self.redirect.retain(|r| r.from != value.as_str());
         self.block.remove(&value);
         self.allow.insert(value);
     }
     pub fn remove_allow(&mut self, value: &'a str) {
         self.allow.remove(&H::new(value));
     }
-
     pub fn get_block(&self) -> &HashSet<H> {
         &self.block
     }
+    /*
     pub fn insert_block(&mut self, value: H<'a>) {
-        self.redirect.retain(|r| r.from == value.as_str());
+        self.redirect.retain(|r| r.from != value.as_str());
         self.allow.remove(&value);
         self.block.insert(value);
+    }
+    */
+    pub fn insert_block(&mut self, value: &'a str) {
+        self.redirect.retain(|r| r.from != value);
+        let h = H::new(value);
+        self.allow.remove(&h);
+        self.block.insert(h);
     }
     pub fn remove_block(&mut self, value: &'a str) {
         self.block.remove(&H::new(value));
@@ -432,9 +702,8 @@ impl<'a> Container<'a> {
         self.redirect.insert(value);
     }
     pub fn remove_redirect(&mut self, value: &str) {
-        self.redirect.retain(|r| r.from == value);
+        self.redirect.retain(|r| r.from != value);
     }
-
     pub fn get_sources(&self) -> &HashSet<H> {
         &self.sources
     }
@@ -444,7 +713,6 @@ impl<'a> Container<'a> {
     pub fn remove_sources(&mut self, value: &'a str) {
         self.sources.remove(&H::new(value));
     }
-
     pub fn save(&self, paths: &StoragePath) -> Result<()> {
         let mut allow_bytes_vec = Vec::with_capacity(self.allow.len());
         for i in self.allow.iter() {
@@ -498,10 +766,84 @@ impl<'a> Container<'a> {
     }
 }
 
+#[cfg(test)]
+mod test_user_data {
+    use super::UserData;
+    #[test]
+    fn test_allow() {
+        let mut user_data = UserData::new();
+        assert!(user_data.allow.is_empty());
+        assert!(user_data.block.is_empty());
+        assert!(user_data.redirect.is_empty());
+        assert!(user_data.sources.is_empty());
+        user_data.insert_allow("example.com");
+        assert_eq!(user_data.allow.len(), 1);
+        user_data.insert_allow("example.com");
+        assert_eq!(user_data.allow.len(), 1);
+        user_data.insert_allow("example-1.com");
+        assert_eq!(user_data.allow.len(), 2);
+        user_data.insert_allow("example-2.com");
+        assert_eq!(user_data.allow.len(), 3);
+        user_data.insert_allow("example-1.com");
+        assert_eq!(user_data.allow.len(), 3);
+        user_data.remove_allow("example.com");
+        assert_eq!(user_data.allow.len(), 2);
+        user_data.remove_allow("example-3.com");
+        assert_eq!(user_data.allow.len(), 2);
+        user_data.remove_allow("example-1.com");
+        assert_eq!(user_data.allow.len(), 1);
+        assert!(user_data.block.is_empty());
+        assert!(user_data.redirect.is_empty());
+        assert!(user_data.sources.is_empty());
+    }
+    #[test]
+    fn test_allow_block_1() {
+        let mut user_data = UserData::new();
+        assert!(user_data.allow.is_empty());
+        assert!(user_data.block.is_empty());
+        assert!(user_data.redirect.is_empty());
+        assert!(user_data.sources.is_empty());
+        user_data.insert_block("example.com");
+        assert_eq!(user_data.block.len(), 1);
+        user_data.insert_block("example-2.com");
+        assert_eq!(user_data.block.len(), 2);
+        user_data.insert_block("example-3.com");
+        assert_eq!(user_data.block.len(), 3);
+        user_data.insert_block("example.com");
+        assert_eq!(user_data.block.len(), 3);
+        user_data.remove_block("example-4.com");
+        assert_eq!(user_data.block.len(), 3);
+        user_data.remove_block("example-3.com");
+        assert_eq!(user_data.block.len(), 2);
+        user_data.insert_allow("example-2.com");
+        assert_eq!(user_data.block.len(), 1);
+        assert_eq!(user_data.allow.len(), 1);
+        user_data.insert_allow("example-3.com");
+        assert_eq!(user_data.allow.len(), 2);
+        assert_eq!(user_data.block.len(), 1);
+        user_data.insert_block("example-3.com");
+        assert_eq!(user_data.block.len(), 2);
+        assert_eq!(user_data.allow.len(), 1);
+        assert!(user_data.redirect.is_empty());
+        assert!(user_data.sources.is_empty());
+    }
+    #[test]
+    #[ignore = "reason"]
+    fn test_allow_redirect() {
+        let mut user_data = UserData::new();
+        user_data.insert_allow("example.com");
+        user_data.insert_redirect("127.0.0.1", "example.com");
+        assert_eq!(user_data.redirect.len(), 1);
+        assert!(user_data.allow.is_empty());
+        user_data.insert_redirect("0.0.0.0", "example.com");
+        assert_eq!(user_data.redirect.len(), 1);
+    }
+}
+
 #[allow(unused)]
 pub struct App<'a> {
     parent: StoragePath,
-    storage: Container<'a>,
+    storage: UserData<'a>,
     etc_content_str: Vec<&'a str>,
     etc_content_h: HashSet<H<'a>>,
 }
@@ -511,7 +853,7 @@ macro_rules! insert_allow_block {
         let mut iter = $args.into_iter();
         while let Some(u) = iter.next() {
             if let Some(v) = get_host_from_url(u) {
-                $self.storage.$method(H::new(v));
+                $self.storage.$method(v);
             };
         }
     };
@@ -529,7 +871,7 @@ fn eprintln_invalid_host_or_url<T: AsRef<str>>(s: T) {
 impl<'a> App<'a> {
     pub fn new(
         parent: &'static str,
-        storage: Container<'a>,
+        storage: UserData<'a>,
         etc_content: Vec<&'a str>,
     ) -> Result<Self> {
         let parent: StoragePath = [dirs::data_dir().unwrap(), parent.into()]
@@ -549,7 +891,7 @@ impl<'a> App<'a> {
     pub fn get_sources(&self) -> &HashSet<H<'_>> {
         self.storage.get_sources()
     }
-    pub fn add_allow(&mut self, args: &'a Vec<&'a str>) {
+    pub fn add_allow(&mut self, args: &'a [&'a str]) {
         for i in args.iter() {
             if let Some(v) = get_host_from_url(i) {
                 self.etc_content_h.remove(&H::new(v));
@@ -557,7 +899,12 @@ impl<'a> App<'a> {
                 eprintln_invalid_host_or_url(i);
             };
         }
-        insert_allow_block!(self, <insert_allow_h<args>>);
+        let mut iter = args.into_iter();
+        while let Some(u) = iter.next() {
+            if let Some(v) = get_host_from_url(u) {
+                self.storage.insert_allow_h(H::new(v));
+            };
+        }
     }
     pub fn add_block(&mut self, args: &'a [&'a str]) {
         for i in args.iter() {
@@ -581,7 +928,7 @@ impl<'a> App<'a> {
                 None
             };
             let from = if is_valid_host(u.1) {
-                Some(u.0)
+                Some(u.1)
             } else if is_valid_url(u.1) {
                 get_host_from_url(u.1)
             } else {
@@ -662,30 +1009,49 @@ impl<'a> App<'a> {
     pub fn clear_host(&mut self) {
         self.etc_content_h.clear();
     }
-    pub fn impoer_allow(&mut self, args: &'a [&'a str]) {
-        for _ in args.iter() {}
-        todo!()
+    fn export<T: AsRef<Path>, U: AsRef<str>>(path: T, data: &HashSet<U>) {
+        if let Some(parent) = path.as_ref().parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent)
+                    .unwrap_or_else(|_| panic!("Faild to create dir: {}", parent.display()));
+            };
+        };
+        match File::create_new(path) {
+            Ok(f) => {
+                let mut stream = BufWriter::new(f);
+                let mut v = Vec::with_capacity(data.len());
+                for i in data {
+                    v.push(i.as_ref().as_bytes());
+                }
+                v.sort();
+                for i in v {
+                    stream.write_all(i).unwrap();
+                    stream.write_all(b"\n").unwrap();
+                }
+                stream.flush().unwrap();
+                println!("Success....")
+            }
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
+        }
     }
-    pub fn impoer_block(&mut self, _args: &'a [&'a str]) {
-        todo!()
+    pub fn export_allow<T: AsRef<Path>>(&mut self, path: T) {
+        Self::export(path, &self.storage.allow);
     }
-    pub fn impoer_redirect(&mut self, _args: &'a [&'a str]) {
-        todo!()
+    pub fn export_block<T: AsRef<Path>>(&mut self, path: T) {
+        Self::export(path, &self.storage.block);
     }
-    pub fn impoer_sources(&mut self, _args: &'a [&'a str]) {
-        todo!()
+    pub fn export_redirect<T: AsRef<Path>>(&mut self, path: T) {
+        let mut r = HashSet::with_capacity(self.storage.redirect.len());
+        for i in self.storage.redirect.iter() {
+            r.insert(i.to_string());
+        }
+        Self::export(path, &r);
     }
-    pub fn export_allow<T: AsRef<Path>>(&mut self, _path: T) {
-        todo!()
-    }
-    pub fn export_block<T: AsRef<Path>>(&mut self, _path: T) {
-        todo!()
-    }
-    pub fn export_redirect<T: AsRef<Path>>(&mut self, _path: T) {
-        todo!()
-    }
-    pub fn export_sources<T: AsRef<Path>>(&mut self, _path: T) {
-        todo!()
+    pub fn export_sources<T: AsRef<Path>>(&mut self, path: T) {
+        Self::export(path, &self.storage.sources);
     }
     pub fn save(&self) {
         let e_msg = format!(
@@ -1298,7 +1664,7 @@ mod test_get_host_from_url {
         );
     }
     #[test]
-    #[ignore = "reason"]
+    #[ignore = "_"]
     fn test_13() {
         assert_eq!(
             get_host_from_url("http://https://97.7.54.10/login?uname=test_user&pass=12345678"),

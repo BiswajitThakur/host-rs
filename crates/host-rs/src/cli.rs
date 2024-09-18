@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use crossterm::style::Stylize;
 use host_utils::{
     download_from_url, filter_host_from_vec_str, host_path, is_comment, is_valid_url, read_file,
-    Container,
+    UserData,
 };
 use host_utils::{App, StoragePath};
 
@@ -292,7 +292,7 @@ fn run_app(app: &CliApp, parent: &'static str) {
     let binding = etc_host_content();
     let mut my_app = App::new(
         parent,
-        Container::init(&allow, &block, &redirect, &sources),
+        UserData::init(&allow, &block, &redirect, &sources),
         binding.lines().collect(),
     )
     .unwrap();
@@ -320,6 +320,7 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 while let (Some(u), Some(v)) = (iter.next(), iter.next()) {
                     r.push((u, v));
                 }
+                println!("{:?}", r);
                 my_app.add_redirect(&r);
                 my_app.save();
             }
@@ -470,51 +471,23 @@ fn run_app(app: &CliApp, parent: &'static str) {
         },
         CliApp::Export(v) => match v {
             CliArgs::Allow(u) => {
-                let p = PathBuf::from(u[0].clone());
-                if let Some(parent) = p.parent() {
-                    if !parent.exists() {
-                        fs::create_dir_all(parent).unwrap_or_else(|_| {
-                            panic!("Faild to create dir: {}", parent.display())
-                        });
-                    };
-                };
-                my_app.export_allow(p);
+                let path = PathBuf::from(u[0].clone());
+                my_app.export_allow(path);
                 std::process::exit(0);
             }
             CliArgs::Block(u) => {
-                let p = PathBuf::from(u[0].clone());
-                if let Some(parent) = p.parent() {
-                    if !parent.exists() {
-                        fs::create_dir_all(parent).unwrap_or_else(|_| {
-                            panic!("Faild to create dir: {}", parent.display())
-                        });
-                    };
-                };
-                my_app.export_block(p);
+                let path = PathBuf::from(u[0].clone());
+                my_app.export_block(path);
                 std::process::exit(0);
             }
             CliArgs::Redirect(u) => {
-                let p = PathBuf::from(u[0].clone());
-                if let Some(parent) = p.parent() {
-                    if !parent.exists() {
-                        fs::create_dir_all(parent).unwrap_or_else(|_| {
-                            panic!("Faild to create dir: {}", parent.display())
-                        });
-                    };
-                };
-                my_app.export_redirect(p);
+                let path = PathBuf::from(u[0].clone());
+                my_app.export_redirect(path);
                 std::process::exit(0);
             }
             CliArgs::Sources(u) => {
-                let p = PathBuf::from(u[0].clone());
-                if let Some(parent) = p.parent() {
-                    if !parent.exists() {
-                        fs::create_dir_all(parent).unwrap_or_else(|_| {
-                            panic!("Faild to create dir: {}", parent.display())
-                        });
-                    };
-                };
-                my_app.export_sources(p);
+                let path = PathBuf::from(u[0].clone());
+                my_app.export_sources(path);
                 std::process::exit(0);
             }
         },
@@ -531,10 +504,11 @@ fn run_app(app: &CliApp, parent: &'static str) {
                     match i {
                         Ok(ref t) => {
                             total_cap += t.len() / 15;
-                            downloaded_str.push(t)
+                            downloaded_str.push(t);
                         }
                         Err(ref e) => {
-                            eprintln!("{}", e)
+                            eprintln!("{}", e);
+                            std::process::exit(1);
                         }
                     }
                 }
