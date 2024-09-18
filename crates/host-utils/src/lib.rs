@@ -673,6 +673,7 @@ impl<'a> UserData<'a> {
     */
     pub fn insert_block(&mut self, value: &'a str) {
         self.redirect.retain(|r| r.from != value);
+        self.redirect.retain(|r| r.to != value);
         let h = H::new(value);
         self.allow.remove(&h);
         self.block.insert(h);
@@ -688,8 +689,12 @@ impl<'a> UserData<'a> {
         self.redirect.iter().find(|r| r.from == value)
     }
     pub fn insert_redirect(&mut self, to: &'a str, from: &'a str) {
+        self.redirect.retain(|r| r.from != from);
         if let Ok(v) = H::try_from(from) {
             self.allow.remove(&v);
+            self.block.remove(&v);
+        };
+        if let Ok(v) = H::try_from(to) {
             self.block.remove(&v);
         };
         self.redirect.insert(R::new(to, from));
@@ -797,6 +802,69 @@ mod test_user_data {
         assert!(user_data.sources.is_empty());
     }
     #[test]
+    fn test_block() {
+        let mut user_data = UserData::new();
+        user_data.insert_block("example.com");
+        assert_eq!(user_data.block.len(), 1);
+        user_data.insert_block("example.com");
+        assert_eq!(user_data.block.len(), 1);
+        user_data.insert_block("example-1.com");
+        assert_eq!(user_data.block.len(), 2);
+        user_data.insert_block("example-2.com");
+        assert_eq!(user_data.block.len(), 3);
+        user_data.insert_block("example-1.com");
+        assert_eq!(user_data.block.len(), 3);
+        user_data.remove_block("example.com");
+        assert_eq!(user_data.block.len(), 2);
+        user_data.remove_block("example-3.com");
+        assert_eq!(user_data.block.len(), 2);
+        user_data.remove_block("example-1.com");
+        assert_eq!(user_data.block.len(), 1);
+        assert!(user_data.allow.is_empty());
+        assert!(user_data.redirect.is_empty());
+        assert!(user_data.sources.is_empty());
+    }
+    #[test]
+    fn test_redirect() {
+        let mut user_data = UserData::new();
+        user_data.insert_redirect("127.0.0.1", "example.com");
+        assert_eq!(user_data.redirect.len(), 1);
+        user_data.insert_redirect("0.0.0.0", "example-1.com");
+        assert_eq!(user_data.redirect.len(), 2);
+        user_data.insert_redirect("127.0.0.1", "example.com");
+        assert_eq!(user_data.redirect.len(), 2);
+        user_data.remove_redirect("example-1.com");
+        assert_eq!(user_data.redirect.len(), 1);
+        user_data.insert_redirect("0.0.0.0", "example.com");
+        assert_eq!(user_data.redirect.len(), 1);
+        assert!(user_data.allow.is_empty());
+        assert!(user_data.block.is_empty());
+        assert!(user_data.sources.is_empty());
+    }
+    #[test]
+    fn test_sources() {
+        let mut user_data = UserData::new();
+        user_data.insert_sources("example.com");
+        assert_eq!(user_data.sources.len(), 1);
+        user_data.insert_sources("example.com");
+        assert_eq!(user_data.sources.len(), 1);
+        user_data.insert_sources("example-1.com");
+        assert_eq!(user_data.sources.len(), 2);
+        user_data.insert_sources("example-2.com");
+        assert_eq!(user_data.sources.len(), 3);
+        user_data.insert_sources("example-1.com");
+        assert_eq!(user_data.sources.len(), 3);
+        user_data.remove_sources("example.com");
+        assert_eq!(user_data.sources.len(), 2);
+        user_data.remove_sources("example-3.com");
+        assert_eq!(user_data.sources.len(), 2);
+        user_data.remove_sources("example-1.com");
+        assert_eq!(user_data.sources.len(), 1);
+        assert!(user_data.allow.is_empty());
+        assert!(user_data.block.is_empty());
+        assert!(user_data.redirect.is_empty());
+    }
+    #[test]
     fn test_allow_block_1() {
         let mut user_data = UserData::new();
         assert!(user_data.allow.is_empty());
@@ -828,15 +896,21 @@ mod test_user_data {
         assert!(user_data.sources.is_empty());
     }
     #[test]
-    #[ignore = "reason"]
-    fn test_allow_redirect() {
+    fn test_allow_block_redirect() {
         let mut user_data = UserData::new();
         user_data.insert_allow("example.com");
+        user_data.insert_block("127.0.0.1");
         user_data.insert_redirect("127.0.0.1", "example.com");
         assert_eq!(user_data.redirect.len(), 1);
         assert!(user_data.allow.is_empty());
-        user_data.insert_redirect("0.0.0.0", "example.com");
+        assert!(user_data.block.is_empty());
+        user_data.insert_redirect("example-2.com", "example-3.com");
+        user_data.insert_allow("example-2.com");
+        assert_eq!(user_data.allow.len(), 1);
+        assert_eq!(user_data.redirect.len(), 2);
+        user_data.insert_block("example-2.com");
         assert_eq!(user_data.redirect.len(), 1);
+        assert_eq!(user_data.block.len(), 1);
     }
 }
 
@@ -848,17 +922,7 @@ pub struct App<'a> {
     etc_content_h: HashSet<H<'a>>,
 }
 
-macro_rules! insert_allow_block {
-    ($self:ident, <$method:ident<$args:ident>>) => {
-        let mut iter = $args.into_iter();
-        while let Some(u) = iter.next() {
-            if let Some(v) = get_host_from_url(u) {
-                $self.storage.$method(v);
-            };
-        }
-    };
-}
-
+#[inline]
 fn eprintln_invalid_host_or_url<T: AsRef<str>>(s: T) {
     let e = "ERROR".red().bold().to_owned();
     eprintln!(
@@ -892,33 +956,27 @@ impl<'a> App<'a> {
         self.storage.get_sources()
     }
     pub fn add_allow(&mut self, args: &'a [&'a str]) {
-        for i in args.iter() {
-            if let Some(v) = get_host_from_url(i) {
+        for i in args {
+            if let Some(v) = get_host_from_url_or_host(i) {
                 self.etc_content_h.remove(&H::new(v));
+                self.storage.insert_allow(v);
             } else {
                 eprintln_invalid_host_or_url(i);
-            };
-        }
-        let mut iter = args.into_iter();
-        while let Some(u) = iter.next() {
-            if let Some(v) = get_host_from_url(u) {
-                self.storage.insert_allow_h(H::new(v));
             };
         }
     }
     pub fn add_block(&mut self, args: &'a [&'a str]) {
-        for i in args.iter() {
-            if let Some(v) = get_host_from_url(i) {
+        for i in args {
+            if let Some(v) = get_host_from_url_or_host(i) {
                 self.etc_content_h.insert(H::new(v));
+                self.storage.insert_block(v);
             } else {
                 eprintln_invalid_host_or_url(i);
             };
         }
-        insert_allow_block!(self, <insert_block<args>>);
     }
     pub fn add_redirect(&mut self, args: &'a [(&'a str, &'a str)]) {
-        let iter = args.iter();
-        for u in iter {
+        for u in args {
             let to = if is_valid_host(u.0) {
                 Some(u.0)
             } else if is_valid_url(u.0) {
@@ -1052,6 +1110,37 @@ impl<'a> App<'a> {
     }
     pub fn export_sources<T: AsRef<Path>>(&mut self, path: T) {
         Self::export(path, &self.storage.sources);
+    }
+    pub fn restore_etc_host_file(&self) {
+        let path = host_path();
+        let f = File::create(path).unwrap();
+        let mut stream = BufWriter::new(f);
+        let mut flag_h = false;
+        let mut flag_r = false;
+        for i in self.etc_content_str.iter() {
+            if matches!(*i, "#host-rs-beg#" | "# BT-start #") {
+                flag_h = true;
+                continue;
+            };
+            if matches!(*i, "#host-rs-end#" | "# BT-end #") {
+                flag_h = false;
+                continue;
+            };
+            if matches!(*i, "#r-host-rs-beg#" | "# BT-redirect-start #") {
+                flag_r = true;
+                continue;
+            };
+            if matches!(*i, "#r-host-rs-end#" | "# BT-redirect-end #") {
+                flag_r = false;
+                continue;
+            };
+            if flag_h || flag_r {
+                continue;
+            };
+            stream.write_all(i.as_bytes()).unwrap();
+            stream.write_all(b"\n").unwrap();
+        }
+        stream.flush().unwrap();
     }
     pub fn save(&self) {
         let e_msg = format!(

@@ -8,8 +8,6 @@ use host_utils::{
 };
 use host_utils::{App, StoragePath};
 
-//use crate::cli_ops::cmd;
-
 use clap::{Arg, ArgAction, Command};
 
 pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Command {
@@ -100,6 +98,12 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
                         .help("Remove url from sources list")
                         .action(ArgAction::Set)
                         .num_args(1..),
+                )
+                .arg(
+                    Arg::new("self")
+                        .long("self")
+                        .help("Self unistall")
+                        .action(ArgAction::SetTrue),
                 ),
         )
         .subcommand(
@@ -240,12 +244,6 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
                         .action(ArgAction::SetTrue),
                 ),
         )
-        .arg(
-            Arg::new("uninstall")
-                .long("uninstall")
-                .help("Self unistall")
-                .action(ArgAction::SetTrue),
-        )
 }
 
 pub enum UpdateOps {
@@ -268,6 +266,7 @@ pub enum CliArgs {
     Block(Vec<String>),
     Redirect(Vec<String>),
     Sources(Vec<String>),
+    RemoveSelf,
 }
 
 impl CliApp {
@@ -320,7 +319,6 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 while let (Some(u), Some(v)) = (iter.next(), iter.next()) {
                     r.push((u, v));
                 }
-                println!("{:?}", r);
                 my_app.add_redirect(&r);
                 my_app.save();
             }
@@ -357,6 +355,7 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 my_app.add_etc_host(hosts);
                 my_app.save();
             }
+            _ => unreachable!(),
         },
         CliApp::Remove(v) => match v {
             CliArgs::Allow(u) => {
@@ -378,6 +377,23 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 let args: Vec<&str> = u.iter().map(|f| f.as_str()).collect();
                 my_app.rm_sources(&args);
                 my_app.save();
+            }
+            CliArgs::RemoveSelf => {
+                let bin_path = std::env::current_exe().unwrap();
+                fs::remove_file(st.get_allow()).unwrap();
+                println!("{:?}: removed", st.get_allow());
+                fs::remove_file(st.get_block()).unwrap();
+                println!("{:?}: removed", st.get_block());
+                fs::remove_file(st.get_redirect()).unwrap();
+                println!("{:?}: removed", st.get_redirect());
+                fs::remove_file(st.get_sources()).unwrap();
+                println!("{:?}: removed", st.get_sources());
+                my_app.restore_etc_host_file();
+                println!("{:?}: restored", host_path());
+                fs::remove_file(&bin_path).unwrap();
+                println!("{:?}: removed", bin_path);
+                println!("Uninstall success...");
+                std::process::exit(0);
             }
         },
         CliApp::Import(v) => match v {
@@ -468,6 +484,7 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 my_app.add_block(&f);
                 my_app.save();
             }
+            _ => unreachable!(),
         },
         CliApp::Export(v) => match v {
             CliArgs::Allow(u) => {
@@ -490,6 +507,7 @@ fn run_app(app: &CliApp, parent: &'static str) {
                 my_app.export_sources(path);
                 std::process::exit(0);
             }
+            _ => unreachable!(),
         },
         CliApp::Show => {
             todo!()
@@ -596,6 +614,8 @@ pub fn cli_app(name: &'static str, about: &'static str, version: &'static str) -
                         .map(|f| f.to_owned())
                         .collect(),
                 ));
+            } else if remove_matches.get_flag("self") {
+                return CliApp::Remove(CliArgs::RemoveSelf);
             };
             unreachable!()
         }
