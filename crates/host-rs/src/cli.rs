@@ -17,10 +17,10 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
-            Command::new("add")
-                .short_flag('A')
-                .long_flag("add")
-                .aliases(["insert", "append", "push"])
+            Command::new("insert")
+                .short_flag('i')
+                .long_flag("insert")
+                .aliases(["add", "append", "push"])
                 .about("Add host or url to allow, block, redirect, sources list.")
                 .arg(
                     Arg::new("allow")
@@ -61,9 +61,9 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
         .subcommand(
             Command::new("remove")
                 .short_flag('R')
-                .long_flag("remove")
-                .aliases(["rm", "pop", "delete"])
-                .about(".....")
+                .long_flag("rm")
+                .aliases(["pop", "delete"])
+                .about("Remove allow, block, redirect host and host sources")
                 .arg(
                     Arg::new("allow")
                         .short('a')
@@ -110,7 +110,7 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
             Command::new("import")
                 .short_flag('I')
                 .long_flag("import")
-                .about(".....")
+                .about("Import host or url from file.")
                 .arg(
                     Arg::new("allow")
                         .short('a')
@@ -151,7 +151,7 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
             Command::new("export")
                 .short_flag('E')
                 .long_flag("export")
-                .about(".....")
+                .about("Expoer user data (you can import it later).")
                 .arg(
                     Arg::new("allow")
                         .short('a')
@@ -192,7 +192,7 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
             Command::new("show")
                 .short_flag('s')
                 .long_flag("show")
-                .about(".....")
+                .about("print allow, block, redirect and host source.")
                 .arg(
                     Arg::new("allow")
                         .short('a')
@@ -545,7 +545,7 @@ fn run_app(app: &CliApp, parent: &'static str) {
 pub fn cli_app(name: &'static str, about: &'static str, version: &'static str) -> CliApp {
     let matches = cmd(name, about, version).get_matches();
     match matches.subcommand() {
-        Some(("add", add_matches)) => {
+        Some(("insert", add_matches)) => {
             if add_matches.contains_id("allow") {
                 return CliApp::Add(CliArgs::Allow(
                     add_matches

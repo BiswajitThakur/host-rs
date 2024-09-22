@@ -13,13 +13,16 @@ use crossterm::style::Stylize;
 #[derive(Debug, PartialEq)]
 pub struct HashList<T: Eq + Hash>(HashSet<T>);
 
+impl<T: Hash + Eq> Default for HashList<T> {
+    fn default() -> Self {
+        Self(HashSet::new())
+    }
+}
+
 impl<T> HashList<T>
 where
     T: Eq + Hash,
 {
-    pub fn new() -> Self {
-        Self(HashSet::new())
-    }
     pub fn capacity(&self) -> usize {
         self.0.capacity()
     }
@@ -570,16 +573,7 @@ impl From<PathBuf> for StoragePath {
     }
 }
 
-impl Default for StoragePath {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl StoragePath {
-    pub fn new() -> Self {
-        todo!()
-    }
     pub fn get_allow(&self) -> &PathBuf {
         &self.allow
     }
@@ -594,6 +588,7 @@ impl StoragePath {
     }
 }
 
+#[derive(Default)]
 pub struct UserData<'a> {
     allow: HashSet<H<'a>>,
     block: HashSet<H<'a>>,
@@ -776,7 +771,7 @@ mod test_user_data {
     use super::UserData;
     #[test]
     fn test_allow() {
-        let mut user_data = UserData::new();
+        let mut user_data = UserData::default();
         assert!(user_data.allow.is_empty());
         assert!(user_data.block.is_empty());
         assert!(user_data.redirect.is_empty());
@@ -803,7 +798,7 @@ mod test_user_data {
     }
     #[test]
     fn test_block() {
-        let mut user_data = UserData::new();
+        let mut user_data = UserData::default();
         user_data.insert_block("example.com");
         assert_eq!(user_data.block.len(), 1);
         user_data.insert_block("example.com");
@@ -826,7 +821,7 @@ mod test_user_data {
     }
     #[test]
     fn test_redirect() {
-        let mut user_data = UserData::new();
+        let mut user_data = UserData::default();
         user_data.insert_redirect("127.0.0.1", "example.com");
         assert_eq!(user_data.redirect.len(), 1);
         user_data.insert_redirect("0.0.0.0", "example-1.com");
@@ -843,7 +838,7 @@ mod test_user_data {
     }
     #[test]
     fn test_sources() {
-        let mut user_data = UserData::new();
+        let mut user_data = UserData::default();
         user_data.insert_sources("example.com");
         assert_eq!(user_data.sources.len(), 1);
         user_data.insert_sources("example.com");
@@ -866,7 +861,7 @@ mod test_user_data {
     }
     #[test]
     fn test_allow_block_1() {
-        let mut user_data = UserData::new();
+        let mut user_data = UserData::default();
         assert!(user_data.allow.is_empty());
         assert!(user_data.block.is_empty());
         assert!(user_data.redirect.is_empty());
@@ -897,7 +892,7 @@ mod test_user_data {
     }
     #[test]
     fn test_allow_block_redirect() {
-        let mut user_data = UserData::new();
+        let mut user_data = UserData::default();
         user_data.insert_allow("example.com");
         user_data.insert_block("127.0.0.1");
         user_data.insert_redirect("127.0.0.1", "example.com");
@@ -1142,7 +1137,7 @@ impl<'a> App<'a> {
         }
         stream.flush().unwrap();
     }
-    pub fn save(&self) {
+    pub fn save(&mut self) {
         let e_msg = format!(
             "{}: Faild to save changes...",
             "ERROR".red().bold().to_owned()
@@ -1151,6 +1146,8 @@ impl<'a> App<'a> {
             eprintln!("{}", e_msg);
             std::process::exit(1);
         };
+        self.etc_content_h.remove(&H::new("0.0.0.0"));
+        self.etc_content_h.remove(&H::new("127.0.0.1"));
         let mut h = Vec::<&H>::with_capacity(self.etc_content_h.len());
         for i in &self.etc_content_h {
             h.push(i);

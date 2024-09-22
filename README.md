@@ -33,3 +33,99 @@ or
 ```
 cargo install host-rs
 ```
+
+## **Usage**
+
+- **Help**
+
+```bash
+> host-rs --help
+Usage: host-rs <COMMAND>
+
+Commands:
+  insert, -i, --insert  Add host or url to allow, block, redirect, sources list.
+  remove, -R, --rm      Remove allow, block, redirect host and host sources
+  import, -I, --import  Import host or url from file.
+  export, -E, --export  Expoer user data (you can import it later).
+  show, -s, --show      print allow, block, redirect and host source.
+  update, -u, --update  Update sources or self.
+  help                  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+```
+
+- **Block Website**
+
+```bash
+host-rs insert --block <url or hostname1> <url or hostname2> ...
+```
+
+- **Remove Website from Blocklist**
+
+```bash
+host-rs rm --block <url or hostname1> <url or hostname2> ...
+# or
+# host-rs remove --block <url or hostname1> <url or hostname2> ...
+```
+
+- **Allow Website**
+
+use this when, you added hostsources and if it block some website and you dont want to block it.
+
+```bash
+host-rs insert --allow <url or hostname1> <url or hostname2> ...
+```
+
+- **Remove Website from Allow List**
+
+```bash
+host-rs rm --allow <url or hostname1> <url or hostname2> ...
+```
+
+- **Redirection**
+
+In the following example, `<url or hostname2>` redirected to `<url or hostname1>` and `<url or hostname4>` redirected to `<url or hostname3>`
+
+```bash
+host-rs <url or hostname1> <url or hostname2> <url or hostname3> <url or hostname4> ...
+```
+
+- **Remove from Redirect**
+
+```bash
+host-rs <url or hostname2> <url or hostname4> ...
+```
+
+- **Add Host Sources**
+
+You will get verious sources from [this](https://github.com/StevenBlack/hosts) repo.
+
+```bash
+host-rs insert --sources <url of sources>
+```
+
+- **Update Host Sources**
+
+```bash
+host-rs update --sources
+```
+
+- **Remove Host Sources**
+
+```bash
+host-rs remove --sources <url of sources>
+```
+
+- **Uninstall**
+
+```bash
+host-rs remove --self
+```
+
+## **Contributing**
+
+If you'd like to contribute to `Host-RS`, here are some guidelines:
+
+1.
