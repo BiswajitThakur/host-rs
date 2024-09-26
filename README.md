@@ -1,4 +1,4 @@
-# Hosr-RS
+# Host-RS
 
 Blazingly fast CLI tool written in Rust to manage website blocking, unblocking, redirection.
 
