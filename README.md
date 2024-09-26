@@ -11,7 +11,7 @@ Blazingly fast CLI tool written in Rust to manage website blocking, unblocking, 
 - [x] **Update Host Sources:** Update host sources.
 - [x] **Import hosts:** Import hostnames stored in a file and block or unblock them.
 - [x] **Export hosts:** Export the list of currently blocked or unblocked hosts.
-- [x] **Small Binary Size:** Small binary size, less then 3 MB.
+- [x] **Small Binary Size:** Small binary size, less then 5 MB.
 
 ## Installation
 
