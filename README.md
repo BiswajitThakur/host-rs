@@ -1,6 +1,6 @@
 # Hosr-RS
 
-This is a CLI tool written in Rust to manage website blocking, unblocking, redirection.
+Blazingly fast CLI tool written in Rust to manage website blocking, unblocking, redirection.
 
 ## Features
 
