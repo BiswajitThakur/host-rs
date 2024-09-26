@@ -1,7 +1,3 @@
-# !!! Main branch is host-rs 0.2.0, under developing. !!!
-
-For current main released version is in the [host-rs v0.1.2](https://github.com/BiswajitThakur/host-rs/tree/Host-RS_v0.1.2)
-
 # Hosr-RS
 
 This is a CLI tool written in Rust to manage website blocking, unblocking, redirection.
@@ -126,6 +122,8 @@ host-rs remove --self
 
 ## **Contributing**
 
-If you'd like to contribute to `Host-RS`, here are some guidelines:
+Contributions are welcome! If you find any bugs, want to request a new feature or improve the code feel free to open an issue or submit a pull request.
 
-1.
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.

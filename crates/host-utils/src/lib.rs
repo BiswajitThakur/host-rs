@@ -451,6 +451,9 @@ pub fn write_redirect<'a, W: io::Write, T: Iterator<Item = &'a R<'a>>>(
 ) -> anyhow::Result<()> {
     let mut stream = BufWriter::new(w);
     for i in value {
+        if matches!(i.from, "0.0.0.0" | "127.0.0.1") {
+            continue;
+        };
         stream.write_all(i.to.as_bytes())?;
         stream.write_all(b" ")?;
         stream.write_all(i.from.as_bytes())?;
@@ -1082,7 +1085,7 @@ impl<'a> App<'a> {
                     stream.write_all(b"\n").unwrap();
                 }
                 stream.flush().unwrap();
-                println!("Success....")
+                println!("Success....");
             }
             Err(e) => {
                 eprintln!("{}", e);
@@ -1155,6 +1158,9 @@ impl<'a> App<'a> {
         h.sort();
         let mut r = Vec::<&R>::with_capacity(self.storage.get_redirect().len());
         for i in self.storage.get_redirect() {
+            if matches!(i.from, "0.0.0.0" | "127.0.0.1") {
+                continue;
+            };
             r.push(i);
         }
         r.sort();
@@ -1173,6 +1179,7 @@ impl<'a> App<'a> {
         println!("Total host, block by you: {}", self.storage.block_len());
         println!("Total host, allowed by you: {}", self.storage.allow_len());
         println!("Total host sources: {}", self.storage.sources_len());
+        std::process::exit(0);
     }
 }
 
@@ -1414,7 +1421,6 @@ mod test_is_valid_url {
     }
 }
 
-#[inline]
 fn is_valid_host<T: AsRef<str>>(value: T) -> bool {
     let value = value.as_ref();
     if value.is_empty()

@@ -61,8 +61,8 @@ pub fn cmd(name: &'static str, about: &'static str, version: &'static str) -> Co
         .subcommand(
             Command::new("remove")
                 .short_flag('R')
-                .long_flag("rm")
-                .aliases(["pop", "delete"])
+                .long_flag("remove")
+                .aliases(["rm", "pop", "delete"])
                 .about("Remove allow, block, redirect host and host sources")
                 .arg(
                     Arg::new("allow")

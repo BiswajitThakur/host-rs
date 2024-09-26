@@ -1,11 +1,18 @@
 [package]
 name = "host-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
+authors = ["Biswajit Thakur <biswajit733127@gmail.com>"]
+homepage = "https://github.com/BiswajitThakur/host-rs"
+repository = "https://github.com/BiswajitThakur/host-rs"
+readme = "README.md"
+license-file = "LICENSE"
+description = "Block Website, website redirector."
+keywords = ["host", "blocker", "website", "url", "redirect"]
+categories = ["command-line-utilities"]
 
 [dependencies]
-# cli = { path = "../cli" }
-host-utils = { path = "../host-utils" }
+host-utils = { path = "../host-utils", version = "0.1.0" }
 crossterm = { workspace = true }
 dirs = { workspace = true }
 clap = { workspace = true }

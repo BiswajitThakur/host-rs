@@ -1,6 +1,8 @@
 [package]
 name = "host-utils"
 version = "0.1.0"
+license = "MIT"
+description = "library to manage website blocking, unblocking, redirection"
 edition.workspace = true
 
 [dependencies]

@@ -12,9 +12,6 @@ codegen-units = 1
 panic = "abort"
 
 [workspace.dependencies]
-storage = { path = "crates/storage" }
-host = { path = "crates/host" }
-
 clap = { version = "4.5.15", features = ["cargo", "derive"] }
 crossterm = "0.28.1"
 dirs = "5.0.1"
