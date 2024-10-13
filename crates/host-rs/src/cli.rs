@@ -1,4 +1,5 @@
-use std::fs;
+use std::fs::{self, File};
+use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
@@ -23,28 +24,40 @@ enum Commands {
         #[command(flatten)]
         command: InsertOps,
     },
+
     /// Remove allow, block, redirect host and host sources
     #[command(alias = "rm", arg_required_else_help = true)]
     Remove {
         #[command(flatten)]
         command: RemoveOps,
     },
+
+    /// Print allow, block, redirect, etc host and host sources
+    #[command(aliases = ["echo", "show"], arg_required_else_help = true)]
+    Print {
+        #[command(flatten)]
+        command: PrintOps,
+    },
+
     /// Import host or url from file.
     #[command(arg_required_else_help = true)]
     Import {
         #[command(flatten)]
         command: ImportOps,
     },
+
     /// Expoer user data (you can import it later).
     #[command(arg_required_else_help = true)]
     Export {
         #[command(flatten)]
         command: ExportOps,
     },
+
     /// Update sources or self.
+    #[command(arg_required_else_help = true)]
     Update {
         #[command(flatten)]
-        command: UpdateOps1,
+        command: UpdateOps,
     },
 }
 
@@ -66,6 +79,30 @@ struct InsertOps {
     /// Add url to sources list
     #[arg(long, required = true, num_args = 1..)]
     sources: Vec<String>,
+}
+
+#[derive(Args)]
+#[group(required = true, multiple = false)]
+struct PrintOps {
+    /// print allow list
+    #[arg(long, required = true)]
+    allow: bool,
+
+    /// print block list
+    #[arg(long, required = true)]
+    block: bool,
+
+    /// print redirect list
+    #[arg(long, required = true)]
+    redirect: bool,
+
+    /// print sources
+    #[arg(long, required = true)]
+    sources: bool,
+
+    /// print etc hosts
+    #[arg(long, alias = "etc-host", required = true)]
+    etc_hosts: bool,
 }
 
 #[derive(Args)]
@@ -138,7 +175,7 @@ struct ExportOps {
 
 #[derive(Args)]
 #[group(required = true, multiple = false)]
-struct UpdateOps1 {
+struct UpdateOps {
     /// Update self
     #[arg(long = "self", required = true)]
     _self: bool,
@@ -222,6 +259,47 @@ pub fn run() {
                 let hosts = filter_host_from_vec_str(downloaded_str, total_cap);
                 app.add_etc_host(hosts);
                 app.save();
+            } else {
+                unreachable!()
+            }
+        }
+        Commands::Print { command } => {
+            let mut bw = std::io::stdout().lock();
+            if command.allow {
+                let f = File::open(st.get_allow()).unwrap();
+                let br = BufReader::new(f);
+                for line in br.lines() {
+                    bw.write_all(line.unwrap().as_bytes()).unwrap();
+                    bw.write_all(b"\n").unwrap();
+                }
+            } else if command.block {
+                let f = File::open(st.get_block()).unwrap();
+                let br = BufReader::new(f);
+                for line in br.lines() {
+                    bw.write_all(line.unwrap().as_bytes()).unwrap();
+                    bw.write_all(b"\n").unwrap();
+                }
+            } else if command.redirect {
+                let f = File::open(st.get_redirect()).unwrap();
+                let br = BufReader::new(f);
+                for line in br.lines() {
+                    bw.write_all(line.unwrap().as_bytes()).unwrap();
+                    bw.write_all(b"\n").unwrap();
+                }
+            } else if command.sources {
+                let f = File::open(st.get_sources()).unwrap();
+                let br = BufReader::new(f);
+                for line in br.lines() {
+                    bw.write_all(line.unwrap().as_bytes()).unwrap();
+                    bw.write_all(b"\n").unwrap();
+                }
+            } else if command.etc_hosts {
+                let f = File::open(host_path()).unwrap();
+                let br = BufReader::new(f);
+                for line in br.lines() {
+                    bw.write_all(line.unwrap().as_bytes()).unwrap();
+                    bw.write_all(b"\n").unwrap();
+                }
             } else {
                 unreachable!()
             }
@@ -342,6 +420,8 @@ pub fn run() {
                 app.export_redirect(&command.redirect[0]);
             } else if !command.sources.is_empty() {
                 app.export_sources(&command.sources[0]);
+            } else if !command.all.is_empty() {
+                todo!()
             } else {
                 unreachable!()
             }
