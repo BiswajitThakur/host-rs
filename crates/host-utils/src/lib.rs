@@ -1109,36 +1109,37 @@ impl<'a> App<'a> {
     pub fn export_sources<T: AsRef<Path>>(&mut self, path: T) {
         Self::export(path, &self.storage.sources);
     }
-    pub fn restore_etc_host_file(&self) {
-        let path = host_path();
-        let f = File::create(path).unwrap();
+    pub fn restore_etc_host_file<P: AsRef<Path>>(path: P) -> io::Result<()> {
+        let content = fs::read_to_string(path.as_ref())?;
+        let f = File::create(path)?;
         let mut stream = BufWriter::new(f);
         let mut flag_h = false;
         let mut flag_r = false;
-        for i in self.etc_content_str.iter() {
-            if matches!(*i, "#host-rs-beg#" | "# BT-start #") {
+        for i in content.lines() {
+            if matches!(i, "#host-rs-beg#" | "# BT-start #") {
                 flag_h = true;
                 continue;
             };
-            if matches!(*i, "#host-rs-end#" | "# BT-end #") {
+            if matches!(i, "#host-rs-end#" | "# BT-end #") {
                 flag_h = false;
                 continue;
             };
-            if matches!(*i, "#r-host-rs-beg#" | "# BT-redirect-start #") {
+            if matches!(i, "#r-host-rs-beg#" | "# BT-redirect-start #") {
                 flag_r = true;
                 continue;
             };
-            if matches!(*i, "#r-host-rs-end#" | "# BT-redirect-end #") {
+            if matches!(i, "#r-host-rs-end#" | "# BT-redirect-end #") {
                 flag_r = false;
                 continue;
             };
             if flag_h || flag_r {
                 continue;
             };
-            stream.write_all(i.as_bytes()).unwrap();
-            stream.write_all(b"\n").unwrap();
+            stream.write_all(i.as_bytes())?;
+            stream.write_all(b"\n")?;
         }
-        stream.flush().unwrap();
+        stream.flush()?;
+        Ok(())
     }
     pub fn save(&mut self) {
         let e_msg = format!(
