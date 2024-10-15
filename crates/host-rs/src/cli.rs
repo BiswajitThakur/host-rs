@@ -1,6 +1,7 @@
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
+use std::process::exit;
 
 use clap::{Args, Parser, Subcommand};
 use crossterm::style::Stylize;
@@ -11,6 +12,7 @@ use host_utils::{
 };
 
 #[derive(Parser)]
+#[command(version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -186,26 +188,15 @@ struct UpdateOps {
 }
 
 pub fn run() {
-    let etc_host_content = || read_file(host_path()).unwrap();
     let st: StoragePath = [dirs::data_dir().unwrap(), env!("CARGO_BIN_NAME").into()]
         .into_iter()
         .collect::<PathBuf>()
         .into();
-    let allow = read_file(st.get_allow()).unwrap();
-    let block = read_file(st.get_block()).unwrap();
-    let redirect = read_file(st.get_redirect()).unwrap();
-    let sources = read_file(st.get_sources()).unwrap();
-    let binding = etc_host_content();
-    let mut app = App::new(
-        env!("CARGO_BIN_NAME"),
-        UserData::init(&allow, &block, &redirect, &sources),
-        binding.lines().collect(),
-    )
-    .unwrap();
-
     let cli = Cli::parse();
     match cli.command {
         Commands::Insert { command } => {
+            let data = read_user_data(&st);
+            let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
             if !command.allow.is_empty() {
                 let args: Vec<&str> = command.allow.iter().map(|f| f.as_str()).collect();
                 app.add_allow(&args);
@@ -218,7 +209,7 @@ pub fn run() {
                 let args: Vec<&str> = command.redirect.iter().map(|f| f.as_str()).collect();
                 if args.len() % 2 != 0 {
                     eprintln!("Error: Envalid argument length, length must be even");
-                    std::process::exit(1);
+                    exit(1);
                 };
                 let mut r = Vec::<(&str, &str)>::with_capacity(args.len() / 2);
                 let mut iter = args.iter();
@@ -269,36 +260,56 @@ pub fn run() {
                 let f = File::open(st.get_allow()).unwrap();
                 let br = BufReader::new(f);
                 for line in br.lines() {
-                    bw.write_all(line.unwrap().as_bytes()).unwrap();
-                    bw.write_all(b"\n").unwrap();
+                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
+                        exit(1);
+                    }
+                    if bw.write_all(b"\n").is_err() {
+                        exit(1);
+                    }
                 }
             } else if command.block {
                 let f = File::open(st.get_block()).unwrap();
                 let br = BufReader::new(f);
                 for line in br.lines() {
-                    bw.write_all(line.unwrap().as_bytes()).unwrap();
-                    bw.write_all(b"\n").unwrap();
+                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
+                        exit(1);
+                    }
+                    if bw.write_all(b"\n").is_err() {
+                        exit(1);
+                    }
                 }
             } else if command.redirect {
                 let f = File::open(st.get_redirect()).unwrap();
                 let br = BufReader::new(f);
                 for line in br.lines() {
-                    bw.write_all(line.unwrap().as_bytes()).unwrap();
-                    bw.write_all(b"\n").unwrap();
+                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
+                        exit(1);
+                    }
+                    if bw.write_all(b"\n").is_err() {
+                        exit(1);
+                    }
                 }
             } else if command.sources {
                 let f = File::open(st.get_sources()).unwrap();
                 let br = BufReader::new(f);
                 for line in br.lines() {
-                    bw.write_all(line.unwrap().as_bytes()).unwrap();
-                    bw.write_all(b"\n").unwrap();
+                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
+                        exit(1);
+                    }
+                    if bw.write_all(b"\n").is_err() {
+                        exit(1);
+                    }
                 }
             } else if command.etc_hosts {
                 let f = File::open(host_path()).unwrap();
                 let br = BufReader::new(f);
                 for line in br.lines() {
-                    bw.write_all(line.unwrap().as_bytes()).unwrap();
-                    bw.write_all(b"\n").unwrap();
+                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
+                        exit(1);
+                    }
+                    if bw.write_all(b"\n").is_err() {
+                        exit(1);
+                    }
                 }
             } else {
                 unreachable!()
@@ -306,42 +317,40 @@ pub fn run() {
         }
         Commands::Remove { command } => {
             if !command.allow.is_empty() {
+                let data = read_user_data(&st);
+                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
                 let args: Vec<&str> = command.allow.iter().map(|f| f.as_str()).collect();
                 app.rm_allow(&args);
                 app.save();
             } else if !command.block.is_empty() {
+                let data = read_user_data(&st);
+                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
                 let args: Vec<&str> = command.block.iter().map(|f| f.as_str()).collect();
                 app.rm_block(&args);
                 app.save();
             } else if !command.redirect.is_empty() {
+                let data = read_user_data(&st);
+                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
                 let args: Vec<&str> = command.redirect.iter().map(|f| f.as_str()).collect();
                 app.rm_redirect(&args);
                 app.save();
             } else if !command.sources.is_empty() {
+                let data = read_user_data(&st);
+                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
                 let args: Vec<&str> = command.sources.iter().map(|f| f.as_str()).collect();
                 app.rm_sources(&args);
                 app.save();
             } else if command._self {
-                let bin_path = std::env::current_exe().unwrap();
-                fs::remove_file(st.get_allow()).unwrap();
-                println!("{:?}: removed", st.get_allow());
-                fs::remove_file(st.get_block()).unwrap();
-                println!("{:?}: removed", st.get_block());
-                fs::remove_file(st.get_redirect()).unwrap();
-                println!("{:?}: removed", st.get_redirect());
-                fs::remove_file(st.get_sources()).unwrap();
-                println!("{:?}: removed", st.get_sources());
-                fs::remove_file(&bin_path).unwrap();
-                println!("{:?}: removed", bin_path);
-                app.restore_etc_host_file();
-                println!("{:?}: restored", host_path());
+                uninstall(&st);
                 println!("Uninstall success...");
-                std::process::exit(0);
+                exit(0);
             } else {
                 unreachable!()
             }
         }
         Commands::Import { command } => {
+            let data = read_user_data(&st);
+            let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
             if !command.allow.is_empty() {
                 let mut strs = Vec::with_capacity(command.allow.len());
                 for p in command.allow.iter() {
@@ -412,6 +421,8 @@ pub fn run() {
             }
         }
         Commands::Export { command } => {
+            let data = read_user_data(&st);
+            let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
             if !command.allow.is_empty() {
                 app.export_allow(&command.allow[0]);
             } else if !command.block.is_empty() {
@@ -429,6 +440,8 @@ pub fn run() {
         }
         Commands::Update { command } => {
             if command.sources {
+                let data = read_user_data(&st);
+                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
                 let urls = app.get_sources().iter().map(|f| f.as_str());
                 let downloaded: Vec<Result<String, _>> = urls.map(download_from_url).collect();
                 let mut downloaded_str: Vec<&str> = Vec::with_capacity(downloaded.len());
@@ -456,4 +469,87 @@ pub fn run() {
             }
         }
     }
+}
+
+fn restore(st: &StoragePath) {
+    if st.get_allow().exists() {
+        if fs::remove_file(st.get_allow()).is_ok() {
+            println!("{:?}: removed", st.get_allow());
+        } else {
+            eprintln!("ERROR: faild to remove: {:?}: removed", st.get_allow());
+            exit(1);
+        }
+    }
+    if st.get_block().exists() {
+        if fs::remove_file(st.get_block()).is_ok() {
+            println!("{:?}: removed", st.get_block());
+        } else {
+            eprintln!("ERROR: faild to remove: {:?}: removed", st.get_block());
+            exit(1);
+        }
+    }
+    if st.get_redirect().exists() {
+        if fs::remove_file(st.get_redirect()).is_ok() {
+            println!("{:?}: removed", st.get_redirect());
+        } else {
+            eprintln!("ERROR: faild to remove: {:?}: removed", st.get_redirect());
+            exit(1);
+        }
+    }
+    if st.get_sources().exists() {
+        if fs::remove_file(st.get_sources()).is_ok() {
+            println!("{:?}: removed", st.get_sources());
+        } else {
+            eprintln!("ERROR: faild to remove: {:?}: removed", st.get_sources());
+            exit(1);
+        }
+    }
+    let p = host_path();
+    if App::restore_etc_host_file(&p).is_ok() {
+        println!("{:?}: restored", p);
+    } else {
+        eprintln!("ERROR: faild to restore: {:?}", p);
+        exit(1);
+    }
+}
+
+fn uninstall(st: &StoragePath) {
+    restore(st);
+    let bin_path = std::env::current_exe().unwrap();
+    if fs::remove_file(&bin_path).is_ok() {
+        println!("{:?}: removed", bin_path);
+    } else {
+        eprintln!("ERROR: faild to remove: {:?}: removed", bin_path);
+        exit(1);
+    }
+}
+
+fn read_user_data(st: &StoragePath) -> (String, String, String, String, String) {
+    let allow = read_file(st.get_allow()).unwrap();
+    let block = read_file(st.get_block()).unwrap();
+    let redirect = read_file(st.get_redirect()).unwrap();
+    let sources = read_file(st.get_sources()).unwrap();
+    let etc_host_string = fs::read_to_string(host_path()).unwrap();
+    (allow, block, redirect, sources, etc_host_string)
+}
+
+fn create_app<'a, T: AsRef<str>>(
+    allow: &'a T,
+    block: &'a T,
+    redirect: &'a T,
+    sources: &'a T,
+    etc_hosts_str: &'a T,
+) -> App<'a> {
+    let user_data = UserData::init(
+        allow.as_ref(),
+        block.as_ref(),
+        redirect.as_ref(),
+        sources.as_ref(),
+    );
+    App::new(
+        env!("CARGO_BIN_NAME"),
+        user_data,
+        etc_hosts_str.as_ref().lines().collect(),
+    )
+    .unwrap()
 }
