@@ -1,9 +1,9 @@
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::process::exit;
+use std::process::{exit, Stdio};
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, CommandFactory, Parser, Subcommand};
 use crossterm::style::Stylize;
 
 use host_utils::{
@@ -15,7 +15,23 @@ use host_utils::{
 #[command(version, about)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
+
+    /// Add host to allow list & removed from block list.
+    #[arg(long, num_args = 1..)]
+    allow: Vec<String>,
+
+    /// Add to block list & remove from allow list.
+    #[arg(long, num_args = 1..)]
+    block: Vec<String>,
+
+    /// Add to redirect list & remove from allow and block.
+    #[arg(long, num_args = 1..)]
+    redirect: Vec<String>,
+
+    /// delete all host, host sources and restore /etc/hosts file
+    #[arg(long)]
+    restore: bool,
 }
 
 #[derive(Subcommand)]
@@ -193,31 +209,75 @@ pub fn run() {
         .collect::<PathBuf>()
         .into();
     let cli = Cli::parse();
-    match cli.command {
+
+    let allow = |args: Vec<String>| {
+        let data = read_user_data(&st);
+        let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
+        let args: Vec<&str> = args.iter().map(|f| f.as_str()).collect();
+        app.add_allow(&args);
+        app.save();
+    };
+
+    let block = |args: Vec<String>| {
+        let data = read_user_data(&st);
+        let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
+        let args: Vec<&str> = args.iter().map(|f| f.as_str()).collect();
+        app.add_block(&args);
+        app.save();
+    };
+
+    let redirect = |args: Vec<String>| {
+        let data = read_user_data(&st);
+        let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
+        let args: Vec<&str> = args.iter().map(|f| f.as_str()).collect();
+        if args.len() % 2 != 0 {
+            eprintln!("Error: Envalid argument length, length must be even");
+            exit(1);
+        };
+        let mut r = Vec::<(&str, &str)>::with_capacity(args.len() / 2);
+        let mut iter = args.iter();
+        while let (Some(u), Some(v)) = (iter.next(), iter.next()) {
+            r.push((u, v));
+        }
+        app.add_redirect(&r);
+        app.save();
+    };
+
+    if cli.restore {
+        restore(&st);
+        exit(0);
+    }
+
+    if !cli.allow.is_empty() {
+        allow(cli.allow);
+        exit(0);
+    }
+
+    if !cli.block.is_empty() {
+        block(cli.block);
+        exit(0);
+    }
+
+    if !cli.redirect.is_empty() {
+        redirect(cli.redirect);
+        exit(0);
+    }
+
+    if cli.command.is_none() {
+        Cli::command().print_help().unwrap();
+        exit(0);
+    }
+
+    match cli.command.unwrap() {
         Commands::Insert { command } => {
             let data = read_user_data(&st);
             let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
             if !command.allow.is_empty() {
-                let args: Vec<&str> = command.allow.iter().map(|f| f.as_str()).collect();
-                app.add_allow(&args);
-                app.save();
+                allow(command.allow);
             } else if !command.block.is_empty() {
-                let args: Vec<&str> = command.block.iter().map(|f| f.as_str()).collect();
-                app.add_block(&args);
-                app.save();
+                block(command.block);
             } else if !command.redirect.is_empty() {
-                let args: Vec<&str> = command.redirect.iter().map(|f| f.as_str()).collect();
-                if args.len() % 2 != 0 {
-                    eprintln!("Error: Envalid argument length, length must be even");
-                    exit(1);
-                };
-                let mut r = Vec::<(&str, &str)>::with_capacity(args.len() / 2);
-                let mut iter = args.iter();
-                while let (Some(u), Some(v)) = (iter.next(), iter.next()) {
-                    r.push((u, v));
-                }
-                app.add_redirect(&r);
-                app.save();
+                redirect(command.redirect);
             } else if !command.sources.is_empty() {
                 let args: Vec<&str> = command.sources.iter().map(|f| f.as_str()).collect();
                 let mut valid_urls = Vec::with_capacity(args.len());
@@ -342,7 +402,7 @@ pub fn run() {
                 app.save();
             } else if command._self {
                 uninstall(&st);
-                println!("Uninstall success...");
+                println!("Uninstall Success...");
                 exit(0);
             } else {
                 unreachable!()
@@ -463,7 +523,7 @@ pub fn run() {
                 app.add_etc_host(hosts);
                 app.save();
             } else if command._self {
-                todo!()
+                update();
             } else {
                 unreachable!()
             }
@@ -521,6 +581,22 @@ fn uninstall(st: &StoragePath) {
     } else {
         eprintln!("ERROR: faild to remove: {:?}: removed", bin_path);
         exit(1);
+    }
+}
+
+fn update() {
+    if std::process::Command::new("cargo")
+        .args(["install", env!("CARGO_BIN_NAME")])
+        .stdin(Stdio::null())
+        .status()
+        .is_err()
+    {
+        eprintln!("ERROR: cargo not found");
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        let url = "https://www.rust-lang.org/tools/install";
+        if webbrowser::open(url).is_err() {
+            println!("Please open this url to install Rust: {}", url);
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "host-rs"
-version = "0.2.1"
+version = "0.2.2"
 edition.workspace = true
 authors = ["Biswajit Thakur <biswajit733127@gmail.com>"]
 homepage = "https://github.com/BiswajitThakur/host-rs"
@@ -12,7 +12,8 @@ keywords = ["host", "blocker", "website", "url", "redirect"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-host-utils = { path = "../host-utils", version = "0.1.0" }
+host-utils = { path = "../host-utils", version = "0.1.1" }
 crossterm = { workspace = true }
 dirs = { workspace = true }
 clap = { workspace = true }
+webbrowser = { workspace = true }
