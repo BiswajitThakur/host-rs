@@ -11,20 +11,20 @@ Blazingly fast CLI tool written in Rust to manage website blocking, unblocking, 
 - [x] **Update Host Sources:** Update host sources.
 - [x] **Import hosts:** Import hostnames stored in a file and block or unblock them.
 - [x] **Export hosts:** Export the list of currently blocked or unblocked hosts.
-- [x] **Small Binary Size:** Small binary size.
 
 ## Installation
 
 Ensure you have Rust installed (If you dont want to install Rust, install from precompiled binary).
 
+## Linux & macOS
+
 ```bash
 git clone https://github.com/BiswajitThakur/host-rs.git
 cd host-rs/
-./scripts/build
-sudo ./scripts/install
+./install.sh
 ```
 
-or
+## Other
 
 ```
 cargo install host-rs
@@ -34,28 +34,34 @@ cargo install host-rs
 
 - **Help**
 
-```bash
+```
 > host-rs --help
-Usage: host-rs <COMMAND>
+This is a CLI tool to manage website blocking, unblocking, redirection.
+
+Usage: host-rs [OPTIONS] [COMMAND]
 
 Commands:
-  insert, -i, --insert  Add host or url to allow, block, redirect, sources list.
-  remove, -R, --rm      Remove allow, block, redirect host and host sources
-  import, -I, --import  Import host or url from file.
-  export, -E, --export  Expoer user data (you can import it later).
-  show, -s, --show      print allow, block, redirect and host source.
-  update, -u, --update  Update sources or self.
-  help                  Print this message or the help of the given subcommand(s)
+  insert  Add host or url to allow, block, redirect, sources list
+  remove  Remove allow, block, redirect host and host sources
+  print   Print allow, block, redirect, etc host and host sources
+  import  Import host or url from file
+  export  Expoer user data (you can import it later)
+  update  Update sources or self
+  help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+      --allow <ALLOW>...        Add host to allow list & removed from block list
+      --block <BLOCK>...        Add to block list & remove from allow list
+      --redirect <REDIRECT>...  Add to redirect list & remove from allow and block
+      --restore                 delete all host, host sources and restore /etc/hosts file
+  -h, --help                    Print help
+  -V, --version                 Print version
 ```
 
 - **Block Website**
 
 ```bash
-host-rs insert --block <url or hostname1> <url or hostname2> ...
+host-rs --block <url or hostname1> <url or hostname2> ...
 ```
 
 - **Remove Website from Blocklist**
@@ -68,10 +74,10 @@ host-rs rm --block <url or hostname1> <url or hostname2> ...
 
 - **Allow Website**
 
-use this when, you added hostsources and if it block some website and you dont want to block it.
+use this when, you added hostsources and if it block some website and you don't want to block it.
 
 ```bash
-host-rs insert --allow <url or hostname1> <url or hostname2> ...
+host-rs --allow <url or hostname1> <url or hostname2> ...
 ```
 
 - **Remove Website from Allow List**
@@ -85,13 +91,13 @@ host-rs rm --allow <url or hostname1> <url or hostname2> ...
 In the following example, `<url or hostname2>` redirected to `<url or hostname1>` and `<url or hostname4>` redirected to `<url or hostname3>`
 
 ```bash
-host-rs <url or hostname1> <url or hostname2> <url or hostname3> <url or hostname4> ...
+host-rs --redirect <url or hostname1> <url or hostname2> <url or hostname3> <url or hostname4> ...
 ```
 
 - **Remove from Redirect**
 
 ```bash
-host-rs <url or hostname2> <url or hostname4> ...
+host-rs rm --redirect <url or hostname2> <url or hostname4> ...
 ```
 
 - **Add Host Sources**
