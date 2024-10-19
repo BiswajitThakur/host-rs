@@ -1,8 +1,9 @@
 #![allow(clippy::result_large_err)]
 
+use std::borrow::Cow;
 use std::collections::HashSet;
-use std::fmt::{self, Display};
-use std::fs::{self, File, OpenOptions};
+use std::fmt::{self};
+use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
@@ -215,11 +216,9 @@ where
 
 #[cfg(test)]
 mod tests {
-
+    use super::*;
     use crate::H;
     use crate::R;
-
-    use super::*;
 
     #[test]
     fn test_list_vec_rdr() {
@@ -463,18 +462,17 @@ pub fn write_redirect<'a, W: io::Write, T: Iterator<Item = &'a R<'a>>>(
     Ok(())
 }
 
-pub fn etc_write<T, V, X>(
-    path: T,
+pub fn etc_write<W, V, X>(
+    w: W,
     current_content: (Vec<&H>, Vec<&R>),
     previous_content: V,
 ) -> Result<()>
 where
-    T: AsRef<Path>,
-    X: AsRef<str> + Display,
-    V: Iterator<Item = X> + Clone,
+    W: io::Write,
+    X: AsRef<str>,
+    V: Iterator<Item = X>,
 {
-    let file = File::create(path)?;
-    let mut stream = BufWriter::new(file);
+    let mut stream = BufWriter::new(w);
     let host_b_e = ("#host-rs-beg#", "#host-rs-end#");
     let redirect_b_e = ("#r-host-rs-beg#", "#r-host-rs-end#");
     let t = b"0.0.0.0 ";
@@ -553,7 +551,7 @@ pub fn host_reader<'a>(lines: Vec<&'a str>, h: &mut HashList<H<'a>>) {
         };
     }
 }
-
+/*
 #[derive(Debug)]
 pub struct StoragePath {
     allow: PathBuf,
@@ -575,18 +573,43 @@ impl From<PathBuf> for StoragePath {
         }
     }
 }
+*/
 
-impl StoragePath {
-    pub fn get_allow(&self) -> &PathBuf {
+#[derive(Debug)]
+pub struct StoragePath<'a> {
+    allow: Cow<'a, Path>,
+    block: Cow<'a, Path>,
+    redirect: Cow<'a, Path>,
+    sources: Cow<'a, Path>,
+}
+
+impl<T: AsRef<Path>> From<T> for StoragePath<'_> {
+    fn from(parent: T) -> Self {
+        let p = parent.as_ref();
+        let allow: PathBuf = [p, &PathBuf::from("allow")].into_iter().collect();
+        let block: PathBuf = [p, &PathBuf::from("block")].into_iter().collect();
+        let redirect: PathBuf = [p, &PathBuf::from("redirect")].into_iter().collect();
+        let sources: PathBuf = [p, &PathBuf::from("soucres")].into_iter().collect();
+        Self {
+            allow: Cow::Owned(allow),
+            block: Cow::Owned(block),
+            redirect: Cow::Owned(redirect),
+            sources: Cow::Owned(sources),
+        }
+    }
+}
+
+impl<'a> StoragePath<'a> {
+    pub fn get_allow(&self) -> &Path {
         &self.allow
     }
-    pub fn get_block(&self) -> &PathBuf {
+    pub fn get_block(&self) -> &Path {
         &self.block
     }
-    pub fn get_redirect(&self) -> &PathBuf {
+    pub fn get_redirect(&self) -> &Path {
         &self.redirect
     }
-    pub fn get_sources(&self) -> &PathBuf {
+    pub fn get_sources(&self) -> &Path {
         &self.sources
     }
 }
@@ -728,17 +751,11 @@ impl<'a> UserData<'a> {
         }
         block_bytes_vec.sort();
         write_list(
-            OpenOptions::new()
-                .truncate(true)
-                .write(true)
-                .open(paths.get_allow())?,
+            File::create(paths.get_allow())?,
             allow_bytes_vec.into_iter(),
         )?;
         write_list(
-            OpenOptions::new()
-                .truncate(true)
-                .write(true)
-                .open(paths.get_block())?,
+            File::create(paths.get_block())?,
             block_bytes_vec.into_iter(),
         )?;
         let mut rr = Vec::with_capacity(self.redirect.len());
@@ -746,23 +763,14 @@ impl<'a> UserData<'a> {
             rr.push(i);
         }
         rr.sort();
-        write_redirect(
-            OpenOptions::new()
-                .truncate(true)
-                .write(true)
-                .open(paths.get_redirect())?,
-            rr.into_iter(),
-        )?;
+        write_redirect(File::create(paths.get_redirect())?, rr.into_iter())?;
         let mut sources_bytes_vec = Vec::with_capacity(self.sources.len());
         for i in self.sources.iter() {
             sources_bytes_vec.push(i.as_str().as_bytes());
         }
         sources_bytes_vec.sort();
         write_list(
-            OpenOptions::new()
-                .truncate(true)
-                .write(true)
-                .open(paths.get_sources())?,
+            File::create(paths.get_sources())?,
             sources_bytes_vec.into_iter(),
         )?;
         Ok(())
@@ -914,7 +922,7 @@ mod test_user_data {
 
 #[allow(unused)]
 pub struct App<'a> {
-    parent: StoragePath,
+    parent: StoragePath<'a>,
     storage: UserData<'a>,
     etc_content_str: Vec<&'a str>,
     etc_content_h: HashSet<H<'a>>,
@@ -1167,7 +1175,8 @@ impl<'a> App<'a> {
         r.sort();
         let b_len = h.len();
         let r_len = r.len();
-        if etc_write(host_path(), (h, r), self.etc_content_str.iter()).is_err() {
+        let f = File::create(host_path()).unwrap();
+        if etc_write(f, (h, r), self.etc_content_str.iter()).is_err() {
             eprintln!("{}", e_msg);
             eprintln!(
                 "{}: run as administrator privilages.",
