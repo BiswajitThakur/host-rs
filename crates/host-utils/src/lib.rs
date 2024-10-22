@@ -1212,50 +1212,48 @@ pub fn get_host_from_url_or_host(value: &str) -> Option<&str> {
 }
 
 pub fn is_valid_url<T: AsRef<str>>(value: T) -> bool {
-    let mut value = value.as_ref();
-    if let Some(v) = value.find("http") {
-        if v != 0 {
-            return false;
-        };
-        value = &value[4..];
-    };
-    if value.is_empty() {
-        return false;
-    };
-    let mut iter = value.chars().peekable();
-    if let Some(v) = iter.peek() {
-        if v == &'s' {
-            iter.next();
-        };
-    };
-    for c in r#"://"#.chars() {
-        if let Some(v) = iter.next() {
-            if v != c {
-                return false;
-            };
-        } else {
-            return false;
-        }
-    }
-    if let Some(v) = iter.next() {
-        if !matches!(v, 'a'..='z' | 'A'..='Z' | '0'..='9') {
-            return false;
-        };
-    };
-    let mut present_dot = false;
-    for v in iter {
-        if matches!(v, '/' | '?' | '#') {
-            break;
-        };
-        if v == '.' {
-            present_dot = true;
-            continue;
-        };
-        if !matches!(v, 'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_') {
-            return false;
-        };
-    }
-    present_dot
+    value
+        .as_ref()
+        .split_once(r"://")
+        .and_then(|(l, r)| {
+            if !matches!(l, "http" | "https") {
+                None
+            } else {
+                r.split_once('.')
+            }
+        })
+        .and_then(|(l, r)| {
+            if r.len() < 3
+                || l.len() < 2
+                || l.chars().any(|c| {
+                    !matches!(&c,
+                        'a'..='z' | 'A'..='Z' |
+                        '0'..='9' | '_' | '-'
+                    )
+                })
+            {
+                return None;
+            }
+            if let Some(c) = r.chars().find(|c| {
+                matches!(c, '/' | '?' | '#')
+                    || !matches!(c,
+                      'a'..='z' | 'A'..='Z'|
+                      '0'..='9' | '.' | '_' | '-'
+                    )
+            }) {
+                if matches!(c,
+                    'a'..='z' | 'A'..='Z' | '0'..='9'
+                    | '.' | '_' | '-' | '/' | '?' | '#'
+                ) {
+                    Some(())
+                } else {
+                    None
+                }
+            } else {
+                Some(())
+            }
+        })
+        .is_some()
 }
 
 #[cfg(test)]
