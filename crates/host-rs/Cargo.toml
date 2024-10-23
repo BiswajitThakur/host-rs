@@ -12,7 +12,7 @@ keywords = ["host", "blocker", "website", "url", "redirect"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-host-utils = { path = "../host-utils", version = "0.1.1" }
+host-utils = { path = "../host-utils", version = "0.1.2" }
 crossterm = { workspace = true }
 dirs = { workspace = true }
 clap = { workspace = true }
