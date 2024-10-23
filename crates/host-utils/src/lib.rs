@@ -551,29 +551,6 @@ pub fn host_reader<'a>(lines: Vec<&'a str>, h: &mut HashList<H<'a>>) {
         };
     }
 }
-/*
-#[derive(Debug)]
-pub struct StoragePath {
-    allow: PathBuf,
-    block: PathBuf,
-    redirect: PathBuf,
-    sources: PathBuf,
-}
-
-impl From<PathBuf> for StoragePath {
-    #[allow(unused)]
-    fn from(parent: PathBuf) -> Self {
-        #[cfg(debug_assertions)]
-        let parent = PathBuf::from("tests");
-        Self {
-            allow: [parent.clone(), "allow".into()].into_iter().collect(),
-            block: [parent.clone(), "block".into()].into_iter().collect(),
-            redirect: [parent.clone(), "redirect".into()].into_iter().collect(),
-            sources: [parent, "soucres".into()].into_iter().collect(),
-        }
-    }
-}
-*/
 
 #[derive(Debug)]
 pub struct StoragePath<'a> {
@@ -1223,8 +1200,8 @@ pub fn is_valid_url<T: AsRef<str>>(value: T) -> bool {
             }
         })
         .and_then(|(l, r)| {
-            if r.len() < 3
-                || l.len() < 2
+            if r.len() < 2
+                || l.is_empty()
                 || l.chars().any(|c| {
                     !matches!(&c,
                         'a'..='z' | 'A'..='Z' |
@@ -1234,20 +1211,42 @@ pub fn is_valid_url<T: AsRef<str>>(value: T) -> bool {
             {
                 return None;
             }
-            if let Some(c) = r.chars().find(|c| {
-                matches!(c, '/' | '?' | '#')
+            if let Some((i, c)) = r.chars().enumerate().find(|(_, c)| {
+                matches!(c, '/' | '?' | ':' | '#')
                     || !matches!(c,
-                      'a'..='z' | 'A'..='Z'|
+                      'a'..='z' | 'A'..='Z' |
                       '0'..='9' | '.' | '_' | '-'
                     )
             }) {
-                if matches!(c,
-                    'a'..='z' | 'A'..='Z' | '0'..='9'
-                    | '.' | '_' | '-' | '/' | '?' | '#'
-                ) {
-                    Some(())
-                } else {
-                    None
+                match (i, c) {
+                    (_, 'a'..='z' | 'A'..='Z' | '0'..='9' | '.' | '_' | '-' | '/' | '?' | '#') => {
+                        Some(())
+                    }
+                    (index, ':') => {
+                        let mut port: u16 = 0;
+                        let zero = '0' as u16;
+                        for i in r.chars().skip(index + 1) {
+                            match i {
+                                '0'..='9' => {
+                                    let v = i as u16 - zero;
+                                    if let Some(v) = port.checked_mul(10) {
+                                        port = v;
+                                    } else {
+                                        return None;
+                                    }
+                                    if let Some(u) = port.checked_add(v) {
+                                        port = u;
+                                    } else {
+                                        return None;
+                                    }
+                                }
+                                '/' | '?' | '#' => break,
+                                _ => return None,
+                            }
+                        }
+                        Some(())
+                    }
+                    _ => None,
                 }
             } else {
                 Some(())
@@ -1426,13 +1425,57 @@ mod test_is_valid_url {
         let got = is_valid_url(input);
         let want = false;
         assert_eq!(got, want);
+
+        let input = "https://1.1.1.1:8080/api?key=val";
+        let got = is_valid_url(input);
+        let want = true;
+        assert_eq!(got, want);
+
+        let input = "https://www.example.com:65535/api?key=val";
+        let got = is_valid_url(input);
+        let want = true;
+        assert_eq!(got, want);
+
+        let input = "https://www.example.com:65536/api?key=val";
+        let got = is_valid_url(input);
+        let want = false; // max port = 65535 == 2^16 - 1
+        assert_eq!(got, want);
+
+        let input = "https://1.1.1.1";
+        let got = is_valid_url(input);
+        let want = true;
+        assert_eq!(got, want);
+
+        let input = "https://1.1.1.1/";
+        let got = is_valid_url(input);
+        let want = true;
+        assert_eq!(got, want);
+
+        let input = "https://1.1.1.1?";
+        let got = is_valid_url(input);
+        let want = true;
+        assert_eq!(got, want);
+
+        let input = "https://1.1.1.1#";
+        let got = is_valid_url(input);
+        let want = true;
+        assert_eq!(got, want);
+
+        let input = "https://1.1.1.1@";
+        let got = is_valid_url(input);
+        let want = false;
+        assert_eq!(got, want);
+
+        let input = "https://1.1.1.1:0";
+        let got = is_valid_url(input);
+        let want = true;
+        assert_eq!(got, want);
     }
 }
 
 fn is_valid_host<T: AsRef<str>>(value: T) -> bool {
     let value = value.as_ref();
     if value.is_empty()
-        // || value.len() > 63
         || value.starts_with(' ')
         || value.ends_with(' ')
         || value.starts_with('.')
@@ -1638,39 +1681,32 @@ pub fn filter_host_from_vec_str(value: Vec<&str>, result_cap: usize) -> Vec<H> {
     hosts
 }
 
-pub fn get_host_from_url<T: AsRef<str> + ?Sized>(webs: &T) -> Option<&str> {
-    let mut webs = webs.as_ref().trim();
-    if let Some(v) = webs.find("http://") {
-        if v == 0 {
-            webs = &webs[7..];
-        };
+pub fn get_host_from_url<'a, T: AsRef<str> + ?Sized>(webs: &'a T) -> Option<&'a str> {
+    let url = webs.as_ref().trim_start();
+    let f = |v: &'a str| {
+        if let Some((host, _)) = v.split_once(['/', '?', '#', ':']) {
+            if is_valid_host(host) {
+                Some(host)
+            } else {
+                None
+            }
+        } else if is_valid_host(v) {
+            Some(v)
+        } else {
+            None
+        }
     };
-    if let Some(v) = webs.find("https://") {
-        if v == 0 {
-            webs = &webs[8..];
-        };
-    };
-    let mut end = webs.len();
-    if let Some(v) = webs.find('/') {
-        if v < end {
-            end = v;
-        };
-    };
-    if let Some(v) = webs.find('?') {
-        if v < end {
-            end = v;
-        };
-    };
-    if let Some(v) = webs.find(':') {
-        if v < end {
-            end = v;
-        };
-    };
-    let v = &webs[..end];
-    if is_valid_host(v) {
-        return Some(v);
-    };
-    None
+    if url.starts_with("http") {
+        url.split_once("://").and_then(|(left, right)| {
+            if !matches!(left, "http" | "https") {
+                None
+            } else {
+                f(right)
+            }
+        })
+    } else {
+        f(url)
+    }
 }
 
 #[cfg(test)]
@@ -1764,7 +1800,6 @@ mod test_get_host_from_url {
         );
     }
     #[test]
-    #[ignore = "_"]
     fn test_13() {
         assert_eq!(
             get_host_from_url("http://https://97.7.54.10/login?uname=test_user&pass=12345678"),
