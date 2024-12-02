@@ -1,13 +1,13 @@
 [package]
 name = "host-rs"
-version = "0.2.3"
+version = "0.2.4"
 edition.workspace = true
 authors = ["Biswajit Thakur <biswajit733127@gmail.com>"]
 homepage = "https://github.com/BiswajitThakur/host-rs"
 repository = "https://github.com/BiswajitThakur/host-rs"
 readme = "README.md"
 license-file = "LICENSE"
-description = "This is a CLI tool to manage website blocking, unblocking, redirection."
+description = "A CLI tool that manage website blocking, unblocking, redirection."
 keywords = ["host", "blocker", "website", "url", "redirect"]
 categories = ["command-line-utilities"]
 
