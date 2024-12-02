@@ -1,5 +1,0 @@
-#!/bin/env bash
-
-source ./scripts/func.sh
-
-install;
