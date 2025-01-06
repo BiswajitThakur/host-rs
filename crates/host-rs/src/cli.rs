@@ -1,10 +1,10 @@
+/*
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{exit, Stdio};
 
 use clap::{Args, CommandFactory, Parser, Subcommand};
-use crossterm::style::Stylize;
 
 use host_utils::{
     download_from_url, filter_host_from_vec_str, host_path, is_comment, is_valid_url, read_file,
@@ -628,4 +628,4 @@ fn create_app<'a, T: AsRef<str>>(
         etc_hosts_str.as_ref().lines().collect(),
     )
     .unwrap()
-}
+}*/

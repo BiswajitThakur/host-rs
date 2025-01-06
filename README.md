@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/host-rs.svg)](https://crates.io/crates/host-rs)
 [![downloads](https://img.shields.io/crates/d/host-rs.svg)](https://crates.io/crates/host-rs)
 
-Blazingly fast CLI tool written in Rust to manage website blocking, unblocking, redirection.
+A CLI tool that manage website blocking, unblocking, redirection.
 
 ## Features
 
