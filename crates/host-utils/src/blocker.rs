@@ -19,18 +19,22 @@ pub struct HostRs<'a, O: io::Write, E: io::Write> {
     pub(crate) block: HashSet<Cow<'a, str>>,
     pub(crate) data: UserData<'a>,
     pub(crate) etc_hosts: Cow<'a, str>,
-    pub(crate) stdout: O,
-    pub(crate) stderr: E,
+    pub(crate) stdout: &'a mut O,
+    pub(crate) stderr: &'a mut E,
 }
 
 impl<'a, O: io::Write, E: io::Write> HostRs<'a, O, E> {
-    pub fn new<P: AsRef<Path>, R: io::Read>(
+    pub fn new<R: io::Read>(
         etc_hosts: &'a str,
-        db: R,
-        stdout: O,
-        stderr: E,
+        db: Option<R>,
+        stdout: &'a mut O,
+        stderr: &'a mut E,
     ) -> io::Result<Self> {
-        let user_db = UserData::from_read(db)?;
+        let user_db = if db.is_some() {
+            UserData::from_read(db.unwrap())?
+        } else {
+            UserData::default()
+        };
         Ok(Self {
             block: filter_etc_hosts(etc_hosts),
             data: user_db,
@@ -207,7 +211,7 @@ impl<'a, O: io::Write, E: io::Write> HostRs<'a, O, E> {
         todo!()
     }
     pub fn clear_data(&mut self) {
-        todo!()
+        self.data.clear();
     }
 }
 
