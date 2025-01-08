@@ -11,11 +11,11 @@ use colored::Colorize;
 
 use crate::{
     db::UserData,
-    scanner::HostScanner,
+    scanner::{EtcHostScanner, HostScanner},
     utils::{filter_etc_hosts, get_host_from_url_or_host, is_valid_host, is_valid_url, sha256},
 };
 
-pub struct HostRs<'a, O: io::Write, E: io::Write> {
+pub struct App<'a, O: io::Write, E: io::Write> {
     pub(crate) block: HashSet<Cow<'a, str>>,
     pub(crate) data: UserData<'a>,
     pub(crate) etc_hosts: Cow<'a, str>,
@@ -23,7 +23,7 @@ pub struct HostRs<'a, O: io::Write, E: io::Write> {
     pub(crate) stderr: &'a mut E,
 }
 
-impl<'a, O: io::Write, E: io::Write> HostRs<'a, O, E> {
+impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     pub fn new<R: io::Read>(
         etc_hosts: &'a str,
         db: Option<R>,
@@ -35,8 +35,12 @@ impl<'a, O: io::Write, E: io::Write> HostRs<'a, O, E> {
         } else {
             UserData::default()
         };
+        let mut block = HashSet::with_capacity(etc_hosts.len() / 20);
+        for i in EtcHostScanner::from(etc_hosts) {
+            block.insert(Cow::Borrowed(i));
+        }
         Ok(Self {
-            block: filter_etc_hosts(etc_hosts),
+            block,
             data: user_db,
             etc_hosts: Cow::Borrowed(etc_hosts),
             stdout,
@@ -188,22 +192,25 @@ impl<'a, O: io::Write, E: io::Write> HostRs<'a, O, E> {
         etc_hosts: &mut W1,
         data: &mut W2,
     ) -> io::Result<()> {
-        let mut block = Vec::with_capacity(self.block.len() + self.data.block.len());
+        let mut block = HashSet::with_capacity(self.block.len() + self.data.block.len());
         for i in self.block.iter() {
-            if self.data.allow.get(i).is_none() {
-                block.push(i.as_bytes());
-            }
+            block.insert(i.as_bytes());
         }
         for i in self.data.block.iter() {
-            block.push(i.as_bytes());
+            block.insert(i.as_bytes());
         }
-        block.sort();
+        for i in self.data.allow.iter() {
+            block.remove(i.as_bytes());
+        }
+        let mut v = Vec::with_capacity(block.len());
+        v.extend(block.into_iter());
+        v.sort();
         let mut redirect = Vec::with_capacity(self.data.redirect.len());
         for i in self.data.redirect.iter() {
             redirect.push((i.1.as_bytes(), i.0.as_bytes()));
         }
         redirect.sort();
-        write_etc_host(block, redirect, self.etc_hosts.as_ref(), etc_hosts)?;
+        write_etc_host(v, redirect, self.etc_hosts.as_ref(), etc_hosts)?;
         self.data.write(data)?;
         Ok(())
     }

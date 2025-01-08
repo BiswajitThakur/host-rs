@@ -3,4 +3,4 @@ mod db;
 mod scanner;
 mod utils;
 
-pub use blocker::HostRs;
+pub use blocker::App;
