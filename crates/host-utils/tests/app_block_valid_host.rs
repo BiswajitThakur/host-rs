@@ -160,8 +160,8 @@ ff02::2 ip6-allrouters
 0.0.0.0 example.com
 0.0.0.0 github.com
 0.0.0.0 helloworld.com
-0.0.0.0 xyz.in
 0.0.0.0 www.google.com
+0.0.0.0 xyz.in
 #host-rs-end#
 #r-host-rs-beg#
 #r-host-rs-end#

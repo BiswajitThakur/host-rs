@@ -158,7 +158,7 @@ pub(crate) fn filter_etc_hosts<'a>(value: &'a str) -> HashSet<Cow<'a, str>> {
     let mut iter = value.lines();
     while let Some(line) = iter.next() {
         match line.trim() {
-            "#host-rs-beg" => {
+            "#host-rs-beg#" => {
                 while let Some(v) = iter.next() {
                     match v.trim() {
                         "#host-rs-end#" => break,
