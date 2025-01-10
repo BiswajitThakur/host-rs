@@ -1,17 +1,13 @@
-/*
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
-use std::process::{exit, Stdio};
-
-use clap::{Args, CommandFactory, Parser, Subcommand};
-
-use host_utils::{
-    download_from_url, filter_host_from_vec_str, host_path, is_comment, is_valid_url, read_file,
-    App, StoragePath, UserData,
+use std::{
+    fs,
+    io::{self, BufReader, BufWriter, Read, Write},
+    path::{Path, PathBuf},
 };
 
-#[derive(Parser)]
+use clap::{Args, Parser, Subcommand};
+use host_utils::App;
+
+#[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
     #[command(subcommand)]
@@ -32,9 +28,17 @@ struct Cli {
     /// delete all host, host sources and restore /etc/hosts file
     #[arg(long)]
     restore: bool,
+
+    /// Expoer user data (you can import it later).
+    #[arg(long)]
+    export: PathBuf,
+
+    /// Import data
+    #[arg(long)]
+    import: PathBuf,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 enum Commands {
     /// Add host or url to allow, block, redirect, sources list.
     #[command(alias = "add", arg_required_else_help = true)]
@@ -57,20 +61,6 @@ enum Commands {
         command: PrintOps,
     },
 
-    /// Import host or url from file.
-    #[command(arg_required_else_help = true)]
-    Import {
-        #[command(flatten)]
-        command: ImportOps,
-    },
-
-    /// Expoer user data (you can import it later).
-    #[command(arg_required_else_help = true)]
-    Export {
-        #[command(flatten)]
-        command: ExportOps,
-    },
-
     /// Update sources or self.
     #[command(arg_required_else_help = true)]
     Update {
@@ -79,7 +69,7 @@ enum Commands {
     },
 }
 
-#[derive(Args)]
+#[derive(Debug, Args)]
 #[group(required = true, multiple = false)]
 struct InsertOps {
     /// Add host to allow list & removed from block list.
@@ -99,7 +89,7 @@ struct InsertOps {
     sources: Vec<String>,
 }
 
-#[derive(Args)]
+#[derive(Debug, Args)]
 #[group(required = true, multiple = false)]
 struct PrintOps {
     /// print allow list
@@ -123,7 +113,7 @@ struct PrintOps {
     etc_hosts: bool,
 }
 
-#[derive(Args)]
+#[derive(Debug, Args)]
 #[group(required = true, multiple = false)]
 struct RemoveOps {
     /// Remove host from allow list.
@@ -147,51 +137,7 @@ struct RemoveOps {
     _self: bool,
 }
 
-#[derive(Args)]
-#[group(required = true, multiple = false)]
-struct ImportOps {
-    /// import allow list from file
-    #[arg(long, required = true, num_args = 1)]
-    allow: Vec<PathBuf>,
-
-    /// import block list from file
-    #[arg(long, required = true, num_args = 1)]
-    block: Vec<PathBuf>,
-
-    /// import redirect list from file
-    #[arg(long, required = true, num_args = 1)]
-    redirect: Vec<PathBuf>,
-
-    /// import source list from file
-    #[arg(long, required = true, num_args = 1)]
-    sources: Vec<PathBuf>,
-}
-
-#[derive(Args)]
-#[group(required = true, multiple = false)]
-struct ExportOps {
-    /// export allow list.
-    #[arg(long, required = true, num_args = 1)]
-    allow: Vec<PathBuf>,
-
-    /// export block list.
-    #[arg(long, required = true, num_args = 1)]
-    block: Vec<PathBuf>,
-
-    /// export redirect list.
-    #[arg(long, required = true, num_args = 1)]
-    redirect: Vec<PathBuf>,
-
-    /// export sources list.
-    #[arg(long, required = true, num_args = 1)]
-    sources: Vec<PathBuf>,
-
-    /// export all
-    #[arg(long, required = true, num_args = 1)]
-    all: Vec<PathBuf>,
-}
-
-#[derive(Args)]
+#[derive(Debug, Args)]
 #[group(required = true, multiple = false)]
 struct UpdateOps {
     /// Update self
@@ -203,429 +149,169 @@ struct UpdateOps {
     sources: bool,
 }
 
-pub fn run() {
-    let st: StoragePath = [dirs::data_dir().unwrap(), env!("CARGO_BIN_NAME").into()]
-        .into_iter()
-        .collect::<PathBuf>()
-        .into();
+pub fn run() -> io::Result<()> {
     let cli = Cli::parse();
+    let mut stdout = io::stdout().lock();
+    let mut stderr = io::stderr().lock();
 
-    let allow = |args: Vec<String>| {
-        let data = read_user_data(&st);
-        let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-        let args: Vec<&str> = args.iter().map(|f| f.as_str()).collect();
-        app.add_allow(&args);
-        app.save();
-    };
-
-    let block = |args: Vec<String>| {
-        let data = read_user_data(&st);
-        let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-        let args: Vec<&str> = args.iter().map(|f| f.as_str()).collect();
-        app.add_block(&args);
-        app.save();
-    };
-
-    let redirect = |args: Vec<String>| {
-        let data = read_user_data(&st);
-        let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-        let args: Vec<&str> = args.iter().map(|f| f.as_str()).collect();
-        if args.len() % 2 != 0 {
-            eprintln!("Error: Envalid argument length, length must be even");
-            exit(1);
+    let etc_str = etc_file_string().unwrap();
+    let mut app = App::new(etc_str.as_str(), db_file(), &mut stdout, &mut stderr)?;
+    app.add_allow(cli.allow.iter().map(|v| v.as_str()));
+    app.add_block(cli.block.iter().map(|v| v.as_str()));
+    app.add_redirect(filter_redirect(&cli.redirect).into_iter());
+    app = main2(app, cli.command.as_ref());
+    match app.save(|| {
+        let etc_hosts_file = match fs::File::create(etc_hosts_path()) {
+            Ok(f) => BufWriter::new(f),
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
         };
-        let mut r = Vec::<(&str, &str)>::with_capacity(args.len() / 2);
-        let mut iter = args.iter();
-        while let (Some(u), Some(v)) = (iter.next(), iter.next()) {
-            r.push((u, v));
+        let db_file = match fs::File::create(db_path()) {
+            Ok(f) => BufWriter::new(f),
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        };
+        (etc_hosts_file, db_file)
+    }) {
+        Ok(()) => {}
+        Err(e) => writeln!(stderr, "{}", e)?,
+    }
+    Ok(())
+}
+
+#[inline(always)]
+fn etc_hosts_path() -> &'static Path {
+    if cfg!(debug_assertions) {
+        return Path::new("hosts");
+    } else if cfg!(any(
+        target_os = "linux",
+        target_os = "aix",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "fuchsia",
+        target_os = "hurd",
+        target_os = "illumos",
+        target_os = "ios",
+        target_os = "netbsd",
+        target_os = "nto",
+        target_os = "openbsd",
+        target_os = "redox",
+        target_os = "tvos",
+        target_os = "vxworks",
+    )) {
+        Path::new("/etc/hosts")
+    } else if cfg!(target_os = "macos") {
+        Path::new("/private/etc/hosts")
+    } else if cfg!(target_os = "windows") {
+        Path::new(r"C:\Windows\System32\drivers\etc\hosts")
+    } else if cfg!(target_os = "android") {
+        Path::new("/system/etc/hosts")
+    } else if cfg!(target_os = "solaris") {
+        Path::new("/etc/inet/hosts")
+    } else {
+        eprintln!("ERROR: Unknown OS.");
+        std::process::exit(1);
+    }
+}
+
+fn db_path() -> PathBuf {
+    if cfg!(debug_assertions) {
+        PathBuf::from("db.bin")
+    } else {
+        if let Some(path) = dirs::data_dir() {
+            [
+                &path,
+                Path::new(env!("CARGO_PKG_NAME")),
+                Path::new("db.bin"),
+            ]
+            .into_iter()
+            .collect()
+        } else {
+            PathBuf::from("db.bin")
         }
-        app.add_redirect(&r);
-        app.save();
+    }
+}
+
+fn etc_file_string() -> io::Result<String> {
+    let mut hosts_file = match fs::File::open(etc_hosts_path()) {
+        Ok(f) => BufReader::new(f),
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
     };
+    let mut s = String::new();
+    hosts_file.read_to_string(&mut s)?;
+    Ok(s)
+}
 
-    if cli.restore {
-        restore(&st);
-        exit(0);
+fn db_file<'a>() -> Option<BufReader<fs::File>> {
+    let path = db_path();
+    match fs::File::open(path) {
+        Ok(file) => Some(BufReader::new(file)),
+        Err(_) => None,
     }
+}
 
-    if !cli.allow.is_empty() {
-        allow(cli.allow);
-        exit(0);
+fn filter_redirect<'a>(args: &'a Vec<String>) -> Vec<(&'a str, &'a str)> {
+    if args.len() % 2 != 0 {
+        eprintln!("ERROR: Envalid Arguments");
+        std::process::exit(1);
     }
-
-    if !cli.block.is_empty() {
-        block(cli.block);
-        exit(0);
+    let mut r = Vec::with_capacity(args.len() / 2);
+    let mut iter = args.iter();
+    while let (Some(u), Some(v)) = (iter.next(), iter.next()) {
+        r.push((u.as_str(), v.as_str()));
     }
+    r
+}
 
-    if !cli.redirect.is_empty() {
-        redirect(cli.redirect);
-        exit(0);
-    }
-
-    if cli.command.is_none() {
-        Cli::command().print_help().unwrap();
-        exit(0);
-    }
-
-    match cli.command.unwrap() {
-        Commands::Insert { command } => {
-            let data = read_user_data(&st);
-            let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-            if !command.allow.is_empty() {
-                allow(command.allow);
-            } else if !command.block.is_empty() {
-                block(command.block);
-            } else if !command.redirect.is_empty() {
-                redirect(command.redirect);
-            } else if !command.sources.is_empty() {
-                let args: Vec<&str> = command.sources.iter().map(|f| f.as_str()).collect();
-                let mut valid_urls = Vec::with_capacity(args.len());
-                for url in args.into_iter() {
-                    if is_comment(url) {
-                        continue;
-                    };
-                    if !is_valid_url(url) {
-                        eprintln!("Invalid url: {}", url.dark_red().to_owned());
-                        continue;
-                    };
-                    valid_urls.push(url);
-                }
-                app.add_sources(&valid_urls);
-                let downloaded: Vec<Result<String, _>> =
-                    valid_urls.iter().map(download_from_url).collect();
-                let mut downloaded_str: Vec<&str> = Vec::with_capacity(downloaded.len());
-                let mut total_cap = 0;
-                for i in downloaded.iter() {
-                    match i {
-                        Ok(ref t) => {
-                            total_cap += t.len() / 15;
-                            downloaded_str.push(t)
-                        }
-                        Err(ref e) => {
-                            eprintln!("{}", e)
-                        }
-                    }
-                }
-                let hosts = filter_host_from_vec_str(downloaded_str, total_cap);
-                app.add_etc_host(hosts);
-                app.save();
-            } else {
-                unreachable!()
+fn main2<'a, O: io::Write, E: io::Write>(
+    mut app: App<'a, O, E>,
+    cli: Option<&'a Commands>,
+) -> App<'a, O, E> {
+    match cli {
+        Some(cmd) => match cmd {
+            Commands::Insert { command } => {
+                let InsertOps {
+                    allow,
+                    block,
+                    redirect,
+                    sources,
+                } = command;
+                app.add_allow(allow.iter().map(|v| v.as_str()));
+                app.add_block(block.iter().map(|v| v.as_str()));
             }
-        }
-        Commands::Print { command } => {
-            let mut bw = std::io::stdout().lock();
-            if command.allow {
-                let f = File::open(st.get_allow()).unwrap();
-                let br = BufReader::new(f);
-                for line in br.lines() {
-                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
-                        exit(1);
-                    }
-                    if bw.write_all(b"\n").is_err() {
-                        exit(1);
-                    }
-                }
-            } else if command.block {
-                let f = File::open(st.get_block()).unwrap();
-                let br = BufReader::new(f);
-                for line in br.lines() {
-                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
-                        exit(1);
-                    }
-                    if bw.write_all(b"\n").is_err() {
-                        exit(1);
-                    }
-                }
-            } else if command.redirect {
-                let f = File::open(st.get_redirect()).unwrap();
-                let br = BufReader::new(f);
-                for line in br.lines() {
-                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
-                        exit(1);
-                    }
-                    if bw.write_all(b"\n").is_err() {
-                        exit(1);
-                    }
-                }
-            } else if command.sources {
-                let f = File::open(st.get_sources()).unwrap();
-                let br = BufReader::new(f);
-                for line in br.lines() {
-                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
-                        exit(1);
-                    }
-                    if bw.write_all(b"\n").is_err() {
-                        exit(1);
-                    }
-                }
-            } else if command.etc_hosts {
-                let f = File::open(host_path()).unwrap();
-                let br = BufReader::new(f);
-                for line in br.lines() {
-                    if bw.write_all(line.unwrap().as_bytes()).is_err() {
-                        exit(1);
-                    }
-                    if bw.write_all(b"\n").is_err() {
-                        exit(1);
-                    }
-                }
-            } else {
-                unreachable!()
-            }
-        }
-        Commands::Remove { command } => {
-            if !command.allow.is_empty() {
-                let data = read_user_data(&st);
-                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-                let args: Vec<&str> = command.allow.iter().map(|f| f.as_str()).collect();
-                app.rm_allow(&args);
-                app.save();
-            } else if !command.block.is_empty() {
-                let data = read_user_data(&st);
-                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-                let args: Vec<&str> = command.block.iter().map(|f| f.as_str()).collect();
-                app.rm_block(&args);
-                app.save();
-            } else if !command.redirect.is_empty() {
-                let data = read_user_data(&st);
-                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-                let args: Vec<&str> = command.redirect.iter().map(|f| f.as_str()).collect();
-                app.rm_redirect(&args);
-                app.save();
-            } else if !command.sources.is_empty() {
-                let data = read_user_data(&st);
-                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-                let args: Vec<&str> = command.sources.iter().map(|f| f.as_str()).collect();
-                app.rm_sources(&args);
-                app.save();
-            } else if command._self {
-                uninstall(&st);
-                println!("Uninstall Success...");
-                exit(0);
-            } else {
-                unreachable!()
-            }
-        }
-        Commands::Import { command } => {
-            let data = read_user_data(&st);
-            let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-            if !command.allow.is_empty() {
-                let mut strs = Vec::with_capacity(command.allow.len());
-                for p in command.allow.iter() {
-                    let f = fs::read_to_string(p).unwrap_or_else(|_| {
-                        panic!(
-                            "{}: faild to read file: {}",
-                            "ERROR".red().bold(),
-                            p.to_string_lossy().italic()
-                        )
-                    });
-                    strs.push(f);
-                }
-                let mut f = Vec::with_capacity(strs.len() * 500);
-                for i in strs.iter() {
-                    for j in i.lines() {
-                        f.push(j);
-                    }
-                }
-                app.add_allow(&f);
-                app.save();
-            } else if !command.block.is_empty() {
-                let mut strs = Vec::with_capacity(command.block.len());
-                for p in command.block.iter() {
-                    let f = fs::read_to_string(p).unwrap_or_else(|_| {
-                        panic!(
-                            "{}: faild to read file: {}",
-                            "ERROR".red().bold(),
-                            p.to_string_lossy().italic()
-                        )
-                    });
-                    strs.push(f);
-                }
-                let mut f = Vec::with_capacity(strs.len() * 500);
-                for i in strs.iter() {
-                    for j in i.lines() {
-                        f.push(j);
-                    }
-                }
-                app.add_block(&f);
-                app.save();
-            } else if !command.redirect.is_empty() {
-                let mut strs = Vec::with_capacity(command.redirect.len());
-                for p in command.redirect.iter() {
-                    let f = fs::read_to_string(p).unwrap_or_else(|_| {
-                        panic!(
-                            "{}: faild to read file: {}",
-                            "ERROR".red().bold(),
-                            p.to_string_lossy().italic()
-                        )
-                    });
-                    strs.push(f);
-                }
-                let mut f = Vec::with_capacity(strs.len() * 500);
-                for i in strs.iter() {
-                    for j in i.lines() {
-                        let x: Vec<&str> = j.split_whitespace().collect();
-                        if x.len() > 1 {
-                            f.push((x[0], x[1]));
-                        };
-                    }
-                }
-                app.add_redirect(&f);
-                app.save();
-            } else if !command.sources.is_empty() {
+            Commands::Remove { command } => {
+                let RemoveOps {
+                    allow,
+                    block,
+                    redirect,
+                    sources,
+                    _self,
+                } = command;
                 todo!()
-            } else {
-                unreachable!()
             }
-        }
-        Commands::Export { command } => {
-            let data = read_user_data(&st);
-            let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-            if !command.allow.is_empty() {
-                app.export_allow(&command.allow[0]);
-            } else if !command.block.is_empty() {
-                app.export_block(&command.block[0]);
-            } else if !command.redirect.is_empty() {
-                app.export_redirect(&command.redirect[0]);
-            } else if !command.sources.is_empty() {
-                app.export_sources(&command.sources[0]);
-            } else if !command.all.is_empty() {
+            Commands::Print { command } => {
+                let PrintOps {
+                    allow,
+                    block,
+                    redirect,
+                    sources,
+                    etc_hosts,
+                } = command;
                 todo!()
-            } else {
-                unreachable!()
             }
-            std::process::exit(0);
-        }
-        Commands::Update { command } => {
-            if command.sources {
-                let data = read_user_data(&st);
-                let mut app = create_app(&data.0, &data.1, &data.2, &data.3, &data.4);
-                let urls = app.get_sources().iter().map(|f| f.as_str());
-                let downloaded: Vec<Result<String, _>> = urls.map(download_from_url).collect();
-                let mut downloaded_str: Vec<&str> = Vec::with_capacity(downloaded.len());
-                let mut total_cap = 0;
-                for i in downloaded.iter() {
-                    match i {
-                        Ok(ref t) => {
-                            total_cap += t.len() / 15;
-                            downloaded_str.push(t);
-                        }
-                        Err(ref e) => {
-                            eprintln!("{}", e);
-                            std::process::exit(1);
-                        }
-                    }
-                }
-                let hosts = filter_host_from_vec_str(downloaded_str, total_cap);
-                app.clear_host();
-                app.add_etc_host(hosts);
-                app.save();
-            } else if command._self {
-                update();
-            } else {
-                unreachable!()
+            Commands::Update { command } => {
+                let UpdateOps { _self, sources } = command;
+                todo!()
             }
-        }
+        },
+        None => {}
     }
+    app
 }
-
-fn restore(st: &StoragePath) {
-    if st.get_allow().exists() {
-        if fs::remove_file(st.get_allow()).is_ok() {
-            println!("{:?}: removed", st.get_allow());
-        } else {
-            eprintln!("ERROR: faild to remove: {:?}: removed", st.get_allow());
-            exit(1);
-        }
-    }
-    if st.get_block().exists() {
-        if fs::remove_file(st.get_block()).is_ok() {
-            println!("{:?}: removed", st.get_block());
-        } else {
-            eprintln!("ERROR: faild to remove: {:?}: removed", st.get_block());
-            exit(1);
-        }
-    }
-    if st.get_redirect().exists() {
-        if fs::remove_file(st.get_redirect()).is_ok() {
-            println!("{:?}: removed", st.get_redirect());
-        } else {
-            eprintln!("ERROR: faild to remove: {:?}: removed", st.get_redirect());
-            exit(1);
-        }
-    }
-    if st.get_sources().exists() {
-        if fs::remove_file(st.get_sources()).is_ok() {
-            println!("{:?}: removed", st.get_sources());
-        } else {
-            eprintln!("ERROR: faild to remove: {:?}: removed", st.get_sources());
-            exit(1);
-        }
-    }
-    let p = host_path();
-    if App::restore_etc_host_file(&p).is_ok() {
-        println!("{:?}: restored", p);
-    } else {
-        eprintln!("ERROR: faild to restore: {:?}", p);
-        exit(1);
-    }
-}
-
-fn uninstall(st: &StoragePath) {
-    restore(st);
-    let bin_path = std::env::current_exe().unwrap();
-    if fs::remove_file(&bin_path).is_ok() {
-        println!("{:?}: removed", bin_path);
-    } else {
-        eprintln!("ERROR: faild to remove: {:?}: removed", bin_path);
-        exit(1);
-    }
-}
-
-fn update() {
-    if std::process::Command::new("cargo")
-        .args(["install", env!("CARGO_BIN_NAME")])
-        .stdin(Stdio::null())
-        .status()
-        .is_err()
-    {
-        eprintln!("ERROR: cargo not found");
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        let url = "https://www.rust-lang.org/tools/install";
-        if webbrowser::open(url).is_err() {
-            println!("Please open this url to install Rust: {}", url);
-        }
-    }
-}
-
-fn read_user_data(st: &StoragePath) -> (String, String, String, String, String) {
-    let allow = read_file(st.get_allow()).unwrap();
-    let block = read_file(st.get_block()).unwrap();
-    let redirect = read_file(st.get_redirect()).unwrap();
-    let sources = read_file(st.get_sources()).unwrap();
-    let etc_host_string = fs::read_to_string(host_path()).unwrap();
-    (allow, block, redirect, sources, etc_host_string)
-}
-
-fn create_app<'a, T: AsRef<str>>(
-    allow: &'a T,
-    block: &'a T,
-    redirect: &'a T,
-    sources: &'a T,
-    etc_hosts_str: &'a T,
-) -> App<'a> {
-    let user_data = UserData::init(
-        allow.as_ref(),
-        block.as_ref(),
-        redirect.as_ref(),
-        sources.as_ref(),
-    );
-    App::new(
-        env!("CARGO_BIN_NAME"),
-        user_data,
-        etc_hosts_str.as_ref().lines().collect(),
-    )
-    .unwrap()
-}*/

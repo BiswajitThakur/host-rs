@@ -1,10 +1,7 @@
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
-    fmt, fs,
-    io::{self, BufReader, BufWriter},
-    ops::Index,
-    path::Path,
+    fmt, io,
 };
 
 use colored::Colorize;
@@ -12,7 +9,7 @@ use colored::Colorize;
 use crate::{
     db::UserData,
     scanner::{EtcHostScanner, HostScanner},
-    utils::{filter_etc_hosts, get_host_from_url_or_host, is_valid_host, is_valid_url, sha256},
+    utils::{get_host_from_url_or_host, is_valid_url, sha256},
 };
 
 pub struct App<'a, O: io::Write, E: io::Write> {
@@ -31,7 +28,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
         stderr: &'a mut E,
     ) -> io::Result<Self> {
         let user_db = if db.is_some() {
-            UserData::from_read(db.unwrap())?
+            UserData::from_read(db.unwrap()).unwrap_or_default()
         } else {
             UserData::default()
         };
@@ -54,6 +51,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             "ERROR".red().bold(),
             value.to_string().italic().bold().red(),
         );
+        let _ = self.stderr.flush();
     }
     fn eprintln_url<T: fmt::Display>(&mut self, value: T) {
         let _ = writeln!(
@@ -67,8 +65,8 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     pub fn get_sources(&self) -> &HashMap<Cow<'a, str>, [u8; 32]> {
         &self.data.sources
     }
-    pub fn add_allow<T: AsRef<[&'a str]>>(&mut self, args: T) {
-        for &i in args.as_ref() {
+    pub fn add_allow<T: Iterator<Item = &'a str>>(&mut self, args: T) {
+        for i in args {
             if let Some(v) = get_host_from_url_or_host(i) {
                 let val = Cow::Borrowed(v);
                 self.block.remove(&val);
@@ -78,8 +76,8 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             }
         }
     }
-    pub fn add_block<T: AsRef<[&'a str]>>(&mut self, args: T) {
-        for &i in args.as_ref() {
+    pub fn add_block<T: Iterator<Item = &'a str>>(&mut self, args: T) {
+        for i in args {
             if let Some(v) = get_host_from_url_or_host(i) {
                 let val = Cow::Borrowed(v);
                 self.data.insert_block(val);
@@ -88,8 +86,8 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             }
         }
     }
-    pub fn add_redirect<T: AsRef<[(&'a str, &'a str)]>>(&mut self, args: T) {
-        for i in args.as_ref() {
+    pub fn add_redirect<T: Iterator<Item = (&'a str, &'a str)>>(&mut self, args: T) {
+        for i in args {
             if let Some(to) = get_host_from_url_or_host(i.0) {
                 if let Some(from) = get_host_from_url_or_host(i.1) {
                     let to = Cow::Borrowed(to);
@@ -105,8 +103,8 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             }
         }
     }
-    pub fn add_sources<T: AsRef<[&'a str]>>(&mut self, args: T) {
-        for &i in args.as_ref() {
+    pub fn add_sources<T: Iterator<Item = &'a str>>(&mut self, args: T) {
+        for i in args {
             if is_valid_url(i) {
                 self.data.insert_sources(Cow::Borrowed(i));
             } else {
@@ -114,8 +112,8 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             }
         }
     }
-    pub fn rm_sources<T: AsRef<[&'a str]>>(&mut self, args: T) {
-        for &i in args.as_ref() {
+    pub fn rm_sources<T: Iterator<Item = &'a str>>(&mut self, args: T) {
+        for i in args {
             if is_valid_url(i) {
                 let url = Cow::Borrowed(i);
                 self.data.remove_sources(&url);
@@ -187,11 +185,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     pub fn export<W: io::Write>(&mut self, w: &mut W) -> io::Result<()> {
         self.data.write(w)
     }
-    pub fn save<W1: io::Write, W2: io::Write>(
-        &self,
-        etc_hosts: &mut W1,
-        data: &mut W2,
-    ) -> io::Result<()> {
+    pub fn save<W1: io::Write, W2: io::Write, F: Fn() -> (W1, W2)>(&self, f: F) -> io::Result<()> {
         let mut block = HashSet::with_capacity(self.block.len() + self.data.block.len());
         for i in self.block.iter() {
             block.insert(i.as_bytes());
@@ -210,8 +204,9 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             redirect.push((i.1.as_bytes(), i.0.as_bytes()));
         }
         redirect.sort();
-        write_etc_host(v, redirect, self.etc_hosts.as_ref(), etc_hosts)?;
-        self.data.write(data)?;
+        let (mut etc, mut data) = f();
+        write_etc_host(v, redirect, self.etc_hosts.as_ref(), &mut etc)?;
+        self.data.write(&mut data)?;
         Ok(())
     }
     pub fn restore_etc_hosts<W: io::Write>(&mut self, w: &mut W) -> io::Result<()> {

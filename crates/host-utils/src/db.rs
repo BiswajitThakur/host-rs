@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserData<'a> {
     pub(crate) allow: HashSet<Cow<'a, str>>,
     pub(crate) block: HashSet<Cow<'a, str>>,
@@ -54,13 +54,13 @@ impl<'a> UserData<'a> {
         self.redirect.clear();
         self.sources.clear();
     }
-    pub(crate) fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
+    pub fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
         if let Err(e) = rmp_serde::encode::write(w, self) {
             return Err(io::Error::new(ErrorKind::Other, format!("{e}")));
         }
         w.flush()
     }
-    pub(crate) fn from_read<R: io::Read>(r: R) -> io::Result<Self> {
+    pub fn from_read<R: io::Read>(r: R) -> io::Result<Self> {
         let v: Result<UserData, rmp_serde::decode::Error> = rmp_serde::decode::from_read(r);
         match v {
             Ok(v) => Ok(v),
