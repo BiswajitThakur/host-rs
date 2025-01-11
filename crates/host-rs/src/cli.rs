@@ -1,10 +1,14 @@
 use std::{
     fs,
-    io::{self, BufReader, BufWriter, Read, Write},
+    io::{self, BufReader, BufWriter, ErrorKind, Read, Write},
     path::{Path, PathBuf},
+    process,
+    time::Duration,
 };
 
 use clap::{Args, Parser, Subcommand};
+use colored::Colorize;
+
 use host_utils::App;
 
 #[derive(Debug, Parser)]
@@ -31,11 +35,11 @@ struct Cli {
 
     /// Expoer user data (you can import it later).
     #[arg(long)]
-    export: PathBuf,
+    export: Option<PathBuf>,
 
     /// Import data
     #[arg(long)]
-    import: PathBuf,
+    import: Option<PathBuf>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -159,7 +163,14 @@ pub fn run() -> io::Result<()> {
     app.add_allow(cli.allow.iter().map(|v| v.as_str()));
     app.add_block(cli.block.iter().map(|v| v.as_str()));
     app.add_redirect(filter_redirect(&cli.redirect).into_iter());
-    app = main2(app, cli.command.as_ref());
+    let (mut app, updates) = main2(app, cli.command.as_ref());
+    if let Some(update) = updates.as_ref() {
+        let mut total_len = 0;
+        for (v, _, _) in update {
+            total_len += v.len();
+        }
+        app.apply_update(update, total_len / 20);
+    }
     match app.save(|| {
         let etc_hosts_file = match fs::File::create(etc_hosts_path()) {
             Ok(f) => BufWriter::new(f),
@@ -240,6 +251,9 @@ fn etc_file_string() -> io::Result<String> {
     let mut hosts_file = match fs::File::open(etc_hosts_path()) {
         Ok(f) => BufReader::new(f),
         Err(e) => {
+            if e.kind() == ErrorKind::NotFound {
+                eprintln!("ERROR: file '{}' not found.", etc_hosts_path().display());
+            }
             eprintln!("{e}");
             std::process::exit(1);
         }
@@ -273,7 +287,7 @@ fn filter_redirect<'a>(args: &'a Vec<String>) -> Vec<(&'a str, &'a str)> {
 fn main2<'a, O: io::Write, E: io::Write>(
     mut app: App<'a, O, E>,
     cli: Option<&'a Commands>,
-) -> App<'a, O, E> {
+) -> (App<'a, O, E>, Option<Vec<(String, String, [u8; 32])>>) {
     match cli {
         Some(cmd) => match cmd {
             Commands::Insert { command } => {
@@ -285,6 +299,12 @@ fn main2<'a, O: io::Write, E: io::Write>(
                 } = command;
                 app.add_allow(allow.iter().map(|v| v.as_str()));
                 app.add_block(block.iter().map(|v| v.as_str()));
+                app.add_redirect(filter_redirect(&redirect).into_iter());
+                if !sources.is_empty() {
+                    app.add_sources(sources.iter().map(|v| v.as_str()));
+                    let updates = app.get_update();
+                    return (app, Some(updates));
+                }
             }
             Commands::Remove { command } => {
                 let RemoveOps {
@@ -294,7 +314,13 @@ fn main2<'a, O: io::Write, E: io::Write>(
                     sources,
                     _self,
                 } = command;
-                todo!()
+                app.rm_allow(allow.iter().map(|v| v.as_str()));
+                app.rm_block(block.iter().map(|v| v.as_str()));
+                app.rm_redirect(redirect.iter().map(|v| v.as_str()));
+                app.rm_sources(sources.iter().map(|v| v.as_str()));
+                if *_self {
+                    todo!()
+                }
             }
             Commands::Print { command } => {
                 let PrintOps {
@@ -304,14 +330,50 @@ fn main2<'a, O: io::Write, E: io::Write>(
                     sources,
                     etc_hosts,
                 } = command;
-                todo!()
+                let ep = || eprintln!("{}", "ERROR: Faild to print.".red().bold());
+                if *allow && app.print_allow().is_err() {
+                    ep();
+                }
+                if *block && app.print_block().is_err() {
+                    ep();
+                }
+                if *redirect && app.print_redirect().is_err() {
+                    ep();
+                }
+                if *sources && app.print_sources().is_err() {
+                    ep();
+                }
+                if *etc_hosts && app.print_etc_hosts().is_err() {
+                    ep();
+                }
             }
             Commands::Update { command } => {
                 let UpdateOps { _self, sources } = command;
-                todo!()
+                if *_self {
+                    let child = process::Command::new("cargo")
+                        .args(["install", env!("CARGO_PKG_NAME")])
+                        .stdout(io::stdout())
+                        .stderr(io::stderr())
+                        .status();
+                    match child {
+                        Ok(status) if status.success() => {
+                            println!("{}", ".....Update Success.....".green().bold())
+                        }
+                        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                            eprintln!("{}", ".....Rust not Found.....".yellow().bold());
+                            std::thread::sleep(Duration::from_secs(2));
+                            let _ = webbrowser::open("https://www.rust-lang.org/tools/install");
+                        }
+                        _ => eprintln!("{}", ".....Faild to Update.....".red().bold()),
+                    }
+                }
+                if *sources {
+                    let updates = app.get_update();
+                    return (app, Some(updates));
+                }
             }
         },
         None => {}
     }
-    app
+    (app, None)
 }

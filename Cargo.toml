@@ -11,3 +11,5 @@ lto = true
 codegen-units = 1
 panic = "abort"
 
+[workspace.dependencies]
+colored = "2.2"

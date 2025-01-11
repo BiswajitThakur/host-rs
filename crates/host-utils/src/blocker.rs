@@ -47,8 +47,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     fn eprintln_invalid_host_or_url<T: fmt::Display>(&mut self, value: T) {
         let _ = writeln!(
             self.stderr,
-            "{}: invalid host or url: {}",
-            "ERROR".red().bold(),
+            "ERROR: invalid host or url: {}",
             value.to_string().italic().bold().red(),
         );
         let _ = self.stderr.flush();
@@ -56,8 +55,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     fn eprintln_url<T: fmt::Display>(&mut self, value: T) {
         let _ = writeln!(
             self.stderr,
-            "{}: invalid url: {}",
-            "ERROR".red().bold(),
+            "ERROR: invalid url: {}",
             value.to_string().italic().bold().red()
         );
     }
@@ -76,11 +74,29 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             }
         }
     }
+    pub fn rm_allow<T: Iterator<Item = &'a str>>(&mut self, args: T) {
+        for i in args {
+            if let Some(host) = get_host_from_url_or_host(i) {
+                self.data.remove_allow(&Cow::Borrowed(host));
+            } else {
+                self.eprintln_invalid_host_or_url(i);
+            }
+        }
+    }
     pub fn add_block<T: Iterator<Item = &'a str>>(&mut self, args: T) {
         for i in args {
             if let Some(v) = get_host_from_url_or_host(i) {
                 let val = Cow::Borrowed(v);
                 self.data.insert_block(val);
+            } else {
+                self.eprintln_invalid_host_or_url(i);
+            }
+        }
+    }
+    pub fn rm_block<T: Iterator<Item = &'a str>>(&mut self, args: T) {
+        for i in args {
+            if let Some(v) = get_host_from_url_or_host(i) {
+                self.data.remove_block(&Cow::Borrowed(v));
             } else {
                 self.eprintln_invalid_host_or_url(i);
             }
@@ -103,6 +119,15 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             }
         }
     }
+    pub fn rm_redirect<T: Iterator<Item = &'a str>>(&mut self, args: T) {
+        for i in args {
+            if let Some(v) = get_host_from_url_or_host(i) {
+                self.data.redirect.remove(&Cow::Borrowed(v));
+            } else {
+                self.eprintln_invalid_host_or_url(i);
+            }
+        }
+    }
     pub fn add_sources<T: Iterator<Item = &'a str>>(&mut self, args: T) {
         for i in args {
             if is_valid_url(i) {
@@ -120,19 +145,90 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             }
         }
     }
+    pub fn print_allow(&mut self) -> io::Result<()> {
+        let mut list = Vec::with_capacity(self.data.allow.len());
+        list.extend(self.data.allow.iter().map(|v| v.as_bytes()));
+        list.sort();
+        writeln!(
+            self.stdout,
+            "\t{}",
+            "Allow List".yellow().bold().underline()
+        )?;
+        for i in list {
+            self.stdout.write_all(i)?;
+            self.stdout.write_all(b"\n")?;
+        }
+        self.stdout.flush()
+    }
+    pub fn print_block(&mut self) -> io::Result<()> {
+        let mut list = Vec::with_capacity(self.data.block.len());
+        list.extend(self.block.iter().map(|v| v.as_bytes()));
+        list.sort();
+        writeln!(
+            self.stdout,
+            "\t{}",
+            "Block List".yellow().bold().underline()
+        )?;
+        for i in list {
+            self.stdout.write_all(i)?;
+            self.stdout.write_all(b"\n")?;
+        }
+        self.stdout.flush()
+    }
+    pub fn print_redirect(&mut self) -> io::Result<()> {
+        let mut list = Vec::with_capacity(self.data.redirect.len());
+        list.extend(
+            self.data
+                .redirect
+                .iter()
+                .map(|(k, v)| (v.as_bytes(), k.as_bytes())),
+        );
+        list.sort();
+        writeln!(
+            self.stdout,
+            "\t{}",
+            "Redirect List".yellow().bold().underline()
+        )?;
+        for (to, from) in list {
+            self.stdout.write_all(to)?;
+            self.stdout.write_all(b"  ")?;
+            self.stdout.write_all(from)?;
+            self.stdout.write_all(b"\n")?;
+        }
+        self.stdout.flush()
+    }
+    pub fn print_sources(&mut self) -> io::Result<()> {
+        let mut list = Vec::with_capacity(self.data.sources.len());
+        list.extend(self.data.sources.iter().map(|(k, _)| k.as_bytes()));
+        list.sort();
+        writeln!(
+            self.stdout,
+            "\t{}",
+            "Source List".yellow().bold().underline()
+        )?;
+        for i in list {
+            self.stdout.write_all(i)?;
+            self.stdout.write_all(b"\n")?;
+        }
+        self.stdout.flush()
+    }
     fn download<T: AsRef<str>>(url: T) -> Result<String, ureq::Error> {
         Ok(ureq::get(url.as_ref()).call()?.into_string()?)
     }
-    pub fn get_update(&mut self) -> Vec<(String, &Cow<'a, str>, [u8; 32])> {
+    pub fn get_update(&mut self) -> Vec<(String, String, [u8; 32])> {
         let mut v = Vec::with_capacity(self.data.sources.len());
         for (url, hash) in self.data.sources.iter() {
             // TODO: print update info
+            let _ = writeln!(self.stdout, "Checking: {}", url.yellow());
             match Self::download(url) {
                 Ok(s) => {
                     let new_hash = sha256(&s);
                     if &new_hash != hash {
-                        v.push((s, url, new_hash));
+                        let _ = writeln!(self.stdout, "...Update Available...\n");
+                        v.push((s, url.to_string(), new_hash));
+                        continue;
                     }
+                    let _ = writeln!(self.stdout, "...No Update Available...\n");
                 }
                 Err(e) => {
                     let _ = writeln!(self.stderr, "{e}");
@@ -141,44 +237,41 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
         }
         v
     }
-    pub fn get_update_fource(&mut self) -> (Vec<(String, &Cow<'a, str>, [u8; 32])>, usize) {
+    pub fn print_etc_hosts(&mut self) -> io::Result<()> {
+        for line in self.etc_hosts.lines() {
+            self.stdout.write_all(line.as_bytes())?;
+            self.stdout.write_all(b"\n")?;
+        }
+        self.stdout.flush()
+    }
+    pub fn get_update_fource(&mut self) -> Vec<(String, String, [u8; 32])> {
         let mut v = Vec::with_capacity(self.data.sources.len());
-        let mut cap = 0;
         for (url, _) in self.data.sources.iter() {
-            // TODO: print update info
+            let _ = writeln!(self.stdout, "Downloading From: {}", url.yellow());
             match Self::download(url) {
                 Ok(s) => {
-                    cap += s.len() / 20;
                     let hash = sha256(&s);
-                    v.push((s, url, hash));
+                    v.push((s, url.to_string(), hash));
                 }
                 Err(e) => {
                     let _ = writeln!(self.stderr, "{e}");
                 }
             }
         }
-        (v, cap)
+        v
     }
-    pub fn apply_update(&mut self, update: &'a Vec<(String, &Cow<'a, str>, [u8; 32])>, cap: usize) {
+    pub fn apply_update(&mut self, update: &'a Vec<(String, String, [u8; 32])>, cap: usize) {
         let _ = self.block.try_reserve(cap);
         for (data, url, hash) in update.iter() {
             for host in HostScanner::from(data.as_str()) {
                 self.block.insert(Cow::Borrowed(host));
             }
-            if let Some(h) = self.data.sources.get_mut(*url) {
+            if let Some(h) = self.data.sources.get_mut(&Cow::Borrowed(url.as_str())) {
                 *h = *hash;
             }
         }
     }
-    pub fn rm_allow<T: AsRef<[&'a str]>>(&mut self, args: T) {
-        for i in args.as_ref() {
-            if let Some(host) = get_host_from_url_or_host(i) {
-                self.data.remove_allow(&Cow::Borrowed(host));
-            } else {
-                self.eprintln_invalid_host_or_url(i);
-            }
-        }
-    }
+
     pub fn clear_host(&mut self) {
         self.block.clear();
     }
