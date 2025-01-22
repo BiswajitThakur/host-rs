@@ -27,11 +27,9 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
         stdout: &'a mut O,
         stderr: &'a mut E,
     ) -> io::Result<Self> {
-        let user_db = if db.is_some() {
-            UserData::from_read(db.unwrap()).unwrap_or_default()
-        } else {
-            UserData::default()
-        };
+        let user_db = db
+            .map(|v| UserData::from_read(v).unwrap_or_default())
+            .unwrap_or_default();
         let mut block = HashSet::with_capacity(etc_hosts.len() / 20);
         for i in EtcHostScanner::from(etc_hosts) {
             block.insert(Cow::Borrowed(i));
@@ -145,73 +143,6 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             }
         }
     }
-    pub fn print_allow(&mut self) -> io::Result<()> {
-        let mut list = Vec::with_capacity(self.data.allow.len());
-        list.extend(self.data.allow.iter().map(|v| v.as_bytes()));
-        list.sort();
-        writeln!(
-            self.stdout,
-            "\t{}",
-            "Allow List".yellow().bold().underline()
-        )?;
-        for i in list {
-            self.stdout.write_all(i)?;
-            self.stdout.write_all(b"\n")?;
-        }
-        self.stdout.flush()
-    }
-    pub fn print_block(&mut self) -> io::Result<()> {
-        let mut list = Vec::with_capacity(self.data.block.len());
-        list.extend(self.block.iter().map(|v| v.as_bytes()));
-        list.sort();
-        writeln!(
-            self.stdout,
-            "\t{}",
-            "Block List".yellow().bold().underline()
-        )?;
-        for i in list {
-            self.stdout.write_all(i)?;
-            self.stdout.write_all(b"\n")?;
-        }
-        self.stdout.flush()
-    }
-    pub fn print_redirect(&mut self) -> io::Result<()> {
-        let mut list = Vec::with_capacity(self.data.redirect.len());
-        list.extend(
-            self.data
-                .redirect
-                .iter()
-                .map(|(k, v)| (v.as_bytes(), k.as_bytes())),
-        );
-        list.sort();
-        writeln!(
-            self.stdout,
-            "\t{}",
-            "Redirect List".yellow().bold().underline()
-        )?;
-        for (to, from) in list {
-            self.stdout.write_all(to)?;
-            self.stdout.write_all(b"  ")?;
-            self.stdout.write_all(from)?;
-            self.stdout.write_all(b"\n")?;
-        }
-        self.stdout.flush()
-    }
-    pub fn print_sources(&mut self) -> io::Result<()> {
-        let mut list = Vec::with_capacity(self.data.sources.len());
-        list.extend(self.data.sources.iter().map(|(k, _)| k.as_bytes()));
-        list.sort();
-        writeln!(
-            self.stdout,
-            "\t{}",
-            "Source List".yellow().bold().underline()
-        )?;
-        for i in list {
-            self.stdout.write_all(i)?;
-            self.stdout.write_all(b"\n")?;
-        }
-        self.stdout.flush()
-    }
     fn download<T: AsRef<str>>(url: T) -> Result<String, ureq::Error> {
         Ok(ureq::get(url.as_ref()).call()?.into_string()?)
     }
@@ -278,7 +209,13 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     pub fn export<W: io::Write>(&mut self, w: &mut W) -> io::Result<()> {
         self.data.write(w)
     }
-    pub fn save<W1: io::Write, W2: io::Write, F: Fn() -> (W1, W2)>(&self, f: F) -> io::Result<()> {
+    pub fn save_1<W1: io::Write, W2: io::Write>(&self, w1: &mut W1, w2: &mut W2) -> io::Result<()> {
+        self.save(|| (w1, w2))
+    }
+    pub fn save<W1: io::Write, W2: io::Write, F: FnOnce() -> (W1, W2)>(
+        &self,
+        f: F,
+    ) -> io::Result<()> {
         let mut block = HashSet::with_capacity(self.block.len() + self.data.block.len());
         for i in self.block.iter() {
             block.insert(i.as_bytes());
@@ -367,4 +304,17 @@ where
     etc_file.write_all(b"\n")?;
     etc_file.flush()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+
+    use super::{App, UserData};
+
+    #[test]
+    fn test_app_insert_block() {
+        let data = UserData::default();
+        //let app = App::new("", data, io::sink(), io::sink());
+    }
 }

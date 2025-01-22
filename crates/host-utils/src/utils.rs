@@ -1,6 +1,64 @@
-use std::{borrow::Cow, collections::HashSet};
+use std::{borrow::Cow, collections::HashSet, io};
 
+use colored::Colorize;
 use sha2::Digest;
+
+use crate::db::UserData;
+
+pub fn print_allow<R: io::Read, W: io::Write>(r: R, stdout: &mut W) -> io::Result<()> {
+    let data = UserData::from_read(r)?;
+    let mut list = Vec::with_capacity(data.allow.len());
+    list.extend(data.allow.iter().map(|v| v.as_bytes()));
+    list.sort();
+    writeln!(stdout, "\t{}", "Allow List".yellow().bold().underline())?;
+    for i in list {
+        stdout.write_all(i)?;
+        stdout.write_all(b"\n")?;
+    }
+    stdout.flush()
+}
+pub fn print_block<R: io::Read, W: io::Write>(r: R, stdout: &mut W) -> io::Result<()> {
+    let data = UserData::from_read(r)?;
+    let mut list = Vec::with_capacity(data.block.len());
+    list.extend(data.block.iter().map(|v| v.as_bytes()));
+    list.sort();
+    writeln!(stdout, "\t{}", "Block List".yellow().bold().underline())?;
+    for i in list {
+        stdout.write_all(i)?;
+        stdout.write_all(b"\n")?;
+    }
+    stdout.flush()
+}
+pub fn print_redirect<R: io::Read, W: io::Write>(r: R, stdout: &mut W) -> io::Result<()> {
+    let data = UserData::from_read(r)?;
+    let mut list = Vec::with_capacity(data.redirect.len());
+    list.extend(
+        data.redirect
+            .iter()
+            .map(|(k, v)| (v.as_bytes(), k.as_bytes())),
+    );
+    list.sort();
+    writeln!(stdout, "\t{}", "Redirect List".yellow().bold().underline())?;
+    for (to, from) in list {
+        stdout.write_all(to)?;
+        stdout.write_all(b"  ")?;
+        stdout.write_all(from)?;
+        stdout.write_all(b"\n")?;
+    }
+    stdout.flush()
+}
+pub fn print_sources<R: io::Read, W: io::Write>(r: R, stdout: &mut W) -> io::Result<()> {
+    let data = UserData::from_read(r)?;
+    let mut list = Vec::with_capacity(data.sources.len());
+    list.extend(data.sources.iter().map(|(k, _)| k.as_bytes()));
+    list.sort();
+    writeln!(stdout, "\t{}", "Source List".yellow().bold().underline())?;
+    for i in list {
+        stdout.write_all(i)?;
+        stdout.write_all(b"\n")?;
+    }
+    stdout.flush()
+}
 
 pub(crate) fn is_valid_host<T: AsRef<str>>(value: T) -> bool {
     let value = value.as_ref();

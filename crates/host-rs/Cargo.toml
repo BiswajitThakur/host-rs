@@ -12,7 +12,7 @@ keywords = ["host", "cli", "website blocker", "url", "redirect"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-clap = { version = "4.5.15", features = ["derive"] }
+clap = { version = "4.5.26", features = ["derive"] }
 colored = { workspace = true }
 dirs = "5.0.1"
 host-utils = { path = "../host-utils", version = "1.0.0" }

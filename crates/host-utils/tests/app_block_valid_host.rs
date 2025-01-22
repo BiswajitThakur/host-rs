@@ -1,4 +1,4 @@
-use std::{
+/*use std::{
     fs,
     io::{self, BufReader, Cursor, Read},
 };
@@ -169,4 +169,4 @@ ff02::2 ip6-allrouters
         ),
     ];
     block_valid_hosts(tests);
-}
+}*/

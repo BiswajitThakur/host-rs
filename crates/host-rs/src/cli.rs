@@ -1,6 +1,6 @@
 use std::{
     fs,
-    io::{self, BufReader, BufWriter, ErrorKind, Read, Write},
+    io::{self, BufRead, BufReader, BufWriter, ErrorKind, Read, Write},
     path::{Path, PathBuf},
     process,
     time::Duration,
@@ -9,7 +9,7 @@ use std::{
 use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 
-use host_utils::App;
+use host_utils::{print_allow, print_block, print_redirect, print_sources, App};
 
 #[derive(Debug, Parser)]
 #[command(version, about)]
@@ -158,6 +158,88 @@ pub fn run() -> io::Result<()> {
     let mut stdout = io::stdout().lock();
     let mut stderr = io::stderr().lock();
 
+    if let Some(cmd) = cli.command.as_ref() {
+        match cmd {
+            Commands::Update { command } => {
+                let UpdateOps { _self, sources: _ } = command;
+                if *_self {
+                    let child = process::Command::new("cargo")
+                        .args(["install", env!("CARGO_PKG_NAME")])
+                        .stdout(io::stdout())
+                        .stderr(io::stderr())
+                        .status();
+                    match child {
+                        Ok(status) if status.success() => {
+                            std::process::exit(0);
+                        }
+                        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                            eprintln!("{}", ".....Rust not Found.....".yellow().bold());
+                            std::thread::sleep(Duration::from_secs(3));
+                            let _ = webbrowser::open("https://www.rust-lang.org/tools/install");
+                        }
+                        _ => eprintln!("{}", ".....Faild to Update.....".red().bold()),
+                    }
+                    std::process::exit(1);
+                }
+            }
+            Commands::Print { command } => {
+                let PrintOps {
+                    allow,
+                    block,
+                    redirect,
+                    sources,
+                    etc_hosts,
+                } = command;
+                if *etc_hosts {
+                    let path = etc_hosts_path();
+                    let file = match fs::File::open(path) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            let _ = writeln!(
+                                stderr,
+                                "ERROR: faild to read file '{}'",
+                                path.display().to_string().red()
+                            );
+                            let _ = writeln!(stderr, "{e}");
+                            std::process::exit(1)
+                        }
+                    };
+                    let rdr = BufReader::new(file);
+                    for line in rdr.lines() {
+                        if writeln!(stdout, "{}", line?).is_err() {
+                            break;
+                        }
+                    }
+                    std::process::exit(0);
+                }
+                let data = db_file();
+                let ep = || eprintln!("{}", "ERROR: Faild to print.".red().bold());
+                if data.is_none() {
+                    eprintln!("{}", "Data Not Found".yellow().bold());
+                    std::process::exit(1);
+                }
+                if *allow {
+                    if print_allow(data.unwrap(), &mut stdout).is_err() {
+                        ep();
+                    }
+                } else if *block {
+                    if print_block(data.unwrap(), &mut stdout).is_err() {
+                        ep();
+                    }
+                } else if *redirect {
+                    if print_redirect(data.unwrap(), &mut stdout).is_err() {
+                        ep();
+                    }
+                } else if *sources {
+                    if print_sources(data.unwrap(), &mut stdout).is_err() {
+                        ep();
+                    }
+                }
+                std::process::exit(0);
+            }
+            _ => {}
+        }
+    }
     let etc_str = etc_file_string().unwrap();
     let mut app = App::new(etc_str.as_str(), db_file(), &mut stdout, &mut stderr)?;
     app.add_allow(cli.allow.iter().map(|v| v.as_str()));
@@ -288,92 +370,50 @@ fn main2<'a, O: io::Write, E: io::Write>(
     mut app: App<'a, O, E>,
     cli: Option<&'a Commands>,
 ) -> (App<'a, O, E>, Option<Vec<(String, String, [u8; 32])>>) {
-    match cli {
-        Some(cmd) => match cmd {
-            Commands::Insert { command } => {
-                let InsertOps {
-                    allow,
-                    block,
-                    redirect,
-                    sources,
-                } = command;
-                app.add_allow(allow.iter().map(|v| v.as_str()));
-                app.add_block(block.iter().map(|v| v.as_str()));
-                app.add_redirect(filter_redirect(&redirect).into_iter());
-                if !sources.is_empty() {
-                    app.add_sources(sources.iter().map(|v| v.as_str()));
-                    let updates = app.get_update();
-                    return (app, Some(updates));
-                }
+    if cli.is_none() {
+        return (app, None);
+    }
+    match cli.unwrap() {
+        Commands::Insert { command } => {
+            let InsertOps {
+                allow,
+                block,
+                redirect,
+                sources,
+            } = command;
+            app.add_allow(allow.iter().map(|v| v.as_str()));
+            app.add_block(block.iter().map(|v| v.as_str()));
+            app.add_redirect(filter_redirect(&redirect).into_iter());
+            if !sources.is_empty() {
+                app.add_sources(sources.iter().map(|v| v.as_str()));
+                let updates = app.get_update();
+                return (app, Some(updates));
             }
-            Commands::Remove { command } => {
-                let RemoveOps {
-                    allow,
-                    block,
-                    redirect,
-                    sources,
-                    _self,
-                } = command;
-                app.rm_allow(allow.iter().map(|v| v.as_str()));
-                app.rm_block(block.iter().map(|v| v.as_str()));
-                app.rm_redirect(redirect.iter().map(|v| v.as_str()));
-                app.rm_sources(sources.iter().map(|v| v.as_str()));
-                if *_self {
-                    todo!()
-                }
+        }
+        Commands::Remove { command } => {
+            let RemoveOps {
+                allow,
+                block,
+                redirect,
+                sources,
+                _self,
+            } = command;
+            app.rm_allow(allow.iter().map(|v| v.as_str()));
+            app.rm_block(block.iter().map(|v| v.as_str()));
+            app.rm_redirect(redirect.iter().map(|v| v.as_str()));
+            app.rm_sources(sources.iter().map(|v| v.as_str()));
+            if *_self {
+                todo!()
             }
-            Commands::Print { command } => {
-                let PrintOps {
-                    allow,
-                    block,
-                    redirect,
-                    sources,
-                    etc_hosts,
-                } = command;
-                let ep = || eprintln!("{}", "ERROR: Faild to print.".red().bold());
-                if *allow && app.print_allow().is_err() {
-                    ep();
-                }
-                if *block && app.print_block().is_err() {
-                    ep();
-                }
-                if *redirect && app.print_redirect().is_err() {
-                    ep();
-                }
-                if *sources && app.print_sources().is_err() {
-                    ep();
-                }
-                if *etc_hosts && app.print_etc_hosts().is_err() {
-                    ep();
-                }
+        }
+        Commands::Update { command } => {
+            let UpdateOps { _self, sources } = command;
+            if *sources {
+                let updates = app.get_update();
+                return (app, Some(updates));
             }
-            Commands::Update { command } => {
-                let UpdateOps { _self, sources } = command;
-                if *_self {
-                    let child = process::Command::new("cargo")
-                        .args(["install", env!("CARGO_PKG_NAME")])
-                        .stdout(io::stdout())
-                        .stderr(io::stderr())
-                        .status();
-                    match child {
-                        Ok(status) if status.success() => {
-                            println!("{}", ".....Update Success.....".green().bold())
-                        }
-                        Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                            eprintln!("{}", ".....Rust not Found.....".yellow().bold());
-                            std::thread::sleep(Duration::from_secs(2));
-                            let _ = webbrowser::open("https://www.rust-lang.org/tools/install");
-                        }
-                        _ => eprintln!("{}", ".....Faild to Update.....".red().bold()),
-                    }
-                }
-                if *sources {
-                    let updates = app.get_update();
-                    return (app, Some(updates));
-                }
-            }
-        },
-        None => {}
+        }
+        _ => {}
     }
     (app, None)
 }
