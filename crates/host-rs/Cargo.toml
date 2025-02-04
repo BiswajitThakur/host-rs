@@ -8,7 +8,7 @@ repository = "https://github.com/BiswajitThakur/host-rs"
 readme = "README.md"
 license-file = "LICENSE"
 description = "A CLI tool that manage website blocking, unblocking, redirection."
-keywords = ["host", "cli", "website blocker", "url", "redirect"]
+keywords = ["host", "cli", "web", "url", "redirect"]
 categories = ["command-line-utilities"]
 
 [dependencies]
