@@ -31,9 +31,13 @@ struct Cli {
     #[arg(long, num_args = 1..)]
     redirect: Vec<String>,
 
-    /// delete all host, host sources and restore /etc/hosts file
+    /// restore /etc/hosts file
     #[arg(long)]
-    restore: bool,
+    restore_etc_hosts: bool,
+
+    /// Clear all data
+    #[arg(long)]
+    clear_all_data: bool,
 
     /// Expoer user data (you can import it later).
     #[arg(long)]
@@ -160,11 +164,17 @@ pub fn run() -> io::Result<()> {
     let mut stdout = io::stdout().lock();
     let mut stderr = io::stderr().lock();
 
-    if cli.restore {
+    if cli.restore_etc_hosts {
         let etc_str = etc_file_string();
         let etc = fs::File::create(etc_hosts_path())?;
         let mut etc = BufWriter::new(etc);
         App::<io::Sink, io::Sink>::restore_etc_hosts(etc_str.as_str(), &mut etc)?;
+        std::process::exit(0);
+    }
+    if cli.clear_all_data {
+        let file = fs::File::create(db_path())?;
+        let mut writer = BufWriter::new(file);
+        App::<io::Sink, io::Sink>::restore_data(&mut writer)?;
         std::process::exit(0);
     }
     if let Some(path) = cli.export {

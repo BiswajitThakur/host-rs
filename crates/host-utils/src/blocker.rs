@@ -284,6 +284,9 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     pub fn clear_data(&mut self) {
         self.data.clear();
     }
+    pub fn restore_data<W: io::Write>(w: &mut W) -> io::Result<()> {
+        UserData::default().write(w)
+    }
 }
 
 fn write_etc_host<W>(
