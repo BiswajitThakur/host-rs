@@ -39,7 +39,7 @@ cargo install host-rs
 
 ```
 > host-rs --help
-This is a CLI tool to manage website blocking, unblocking, redirection.
+A CLI tool that manage website blocking, unblocking, redirection.
 
 Usage: host-rs [OPTIONS] [COMMAND]
 
@@ -47,8 +47,6 @@ Commands:
   insert  Add host or url to allow, block, redirect, sources list
   remove  Remove allow, block, redirect host and host sources
   print   Print allow, block, redirect, etc host and host sources
-  import  Import host or url from file
-  export  Expoer user data (you can import it later)
   update  Update sources or self
   help    Print this message or the help of the given subcommand(s)
 
@@ -56,7 +54,10 @@ Options:
       --allow <ALLOW>...        Add host to allow list & removed from block list
       --block <BLOCK>...        Add to block list & remove from allow list
       --redirect <REDIRECT>...  Add to redirect list & remove from allow and block
-      --restore                 delete all host, host sources and restore /etc/hosts file
+      --restore-etc-hosts       restore /etc/hosts file
+      --clear-all-data          Clear all data
+      --export <EXPORT>         Expoer user data (you can import it later)
+      --import <IMPORT>         Import data
   -h, --help                    Print help
   -V, --version                 Print version
 ```
