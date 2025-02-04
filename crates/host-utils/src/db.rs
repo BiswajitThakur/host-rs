@@ -20,7 +20,7 @@ impl<'a> UserData<'a> {
         self.redirect.remove(&value);
         self.allow.insert(value);
     }
-    pub(crate) fn remove_allow(&mut self, value: &Cow<'a, str>) {
+    pub(crate) fn remove_allow(&mut self, value: &'a str) {
         self.allow.remove(value);
     }
     pub(crate) fn insert_block(&mut self, value: Cow<'a, str>) {
@@ -28,7 +28,7 @@ impl<'a> UserData<'a> {
         self.allow.remove(&value);
         self.block.insert(value);
     }
-    pub(crate) fn remove_block(&mut self, value: &Cow<'a, str>) {
+    pub(crate) fn remove_block(&mut self, value: &'a str) {
         self.block.remove(value);
     }
     pub(crate) fn insert_redirect(&mut self, (to, from): (Cow<'a, str>, Cow<'a, str>)) {
@@ -36,16 +36,10 @@ impl<'a> UserData<'a> {
         self.block.remove(&from);
         self.redirect.insert(from, to);
     }
-    pub(crate) fn remove_redirect(&mut self, key: &Cow<'a, str>) {
-        self.redirect.remove(key);
-    }
     pub(crate) fn insert_sources(&mut self, value: Cow<'a, str>) {
         self.sources.insert(value, [0; 32]);
     }
-    pub(crate) fn update_sources(&mut self, key: Cow<'a, str>, value: [u8; 32]) {
-        self.sources.insert(key, value);
-    }
-    pub(crate) fn remove_sources(&mut self, value: &Cow<'a, str>) {
+    pub(crate) fn remove_sources(&mut self, value: &'a str) {
         self.sources.remove(value);
     }
     pub(crate) fn clear(&mut self) {

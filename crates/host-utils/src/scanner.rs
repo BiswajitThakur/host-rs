@@ -17,12 +17,12 @@ impl<'a> From<&'a str> for HostScanner<'a> {
 impl<'a> Iterator for HostScanner<'a> {
     type Item = &'a str;
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(line) = self.lines.next() {
+        for line in self.lines.by_ref() {
             let line = line.trim_start();
             if line.starts_with('#') {
                 continue;
             }
-            if let Some(host) = line.split_whitespace().skip(1).next() {
+            if let Some(host) = line.split_whitespace().nth(1) {
                 if is_valid_host(host) {
                     return Some(host);
                 }
@@ -60,7 +60,7 @@ impl<'a> Iterator for EtcHostScanner<'a> {
                     if line.starts_with('#') {
                         continue;
                     }
-                    if let Some(host) = line.split_whitespace().skip(1).next() {
+                    if let Some(host) = line.split_whitespace().nth(1) {
                         if is_valid_host(host) {
                             return Some(host);
                         }
@@ -72,7 +72,7 @@ impl<'a> Iterator for EtcHostScanner<'a> {
                     continue;
                 }
                 (false, "#r-host-rs-beg#") => {
-                    while let Some(line) = self.lines.next() {
+                    for line in self.lines.by_ref() {
                         if line == "#r-host-rs-end#" {
                             break;
                         }

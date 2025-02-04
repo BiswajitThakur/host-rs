@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashSet, io};
+use std::io;
 
 use colored::Colorize;
 use sha2::Digest;
@@ -50,7 +50,7 @@ pub fn print_redirect<R: io::Read, W: io::Write>(r: R, stdout: &mut W) -> io::Re
 pub fn print_sources<R: io::Read, W: io::Write>(r: R, stdout: &mut W) -> io::Result<()> {
     let data = UserData::from_read(r)?;
     let mut list = Vec::with_capacity(data.sources.len());
-    list.extend(data.sources.iter().map(|(k, _)| k.as_bytes()));
+    list.extend(data.sources.keys().map(|k| k.as_bytes()));
     list.sort();
     writeln!(stdout, "\t{}", "Source List".yellow().bold().underline())?;
     for i in list {
@@ -205,51 +205,6 @@ pub(crate) fn is_comment<T: AsRef<str>>(value: T) -> bool {
         return true;
     };
     false
-}
-
-pub(crate) fn filter_etc_hosts<'a>(value: &'a str) -> HashSet<Cow<'a, str>> {
-    let mut hosts = HashSet::with_capacity(value.len() / 20);
-    // let mut redirect = HashMap::with_capacity(100);
-    let mut iter = value.lines();
-    while let Some(line) = iter.next() {
-        match line.trim() {
-            "#host-rs-beg#" => {
-                while let Some(v) = iter.next() {
-                    match v.trim() {
-                        "#host-rs-end#" => break,
-                        u if is_comment(u) => continue,
-                        u => {
-                            if let Some(host) = u.split_whitespace().skip(1).next() {
-                                if is_valid_host(host) {
-                                    hosts.insert(Cow::Borrowed(host));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            /*
-            "#r-host-rs-beg#" => {
-                while let Some(v) = iter.next() {
-                    match v.trim() {
-                        "#r-host-rs-end#" => break,
-                        u if is_comment(u) => continue,
-                        u => {
-                            let mut i = u.split_whitespace();
-                            if let (Some(to), Some(from)) = (i.next(), i.next()) {
-                                if is_valid_host(to) && is_valid_host(from) {
-                                    redirect.insert(Cow::Borrowed(from), Cow::Borrowed(to));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            */
-            _ => {}
-        }
-    }
-    hosts
 }
 
 pub(crate) fn sha256<T: AsRef<str>>(value: T) -> [u8; 32] {

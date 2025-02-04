@@ -1,5 +1,7 @@
 mod cli;
 
-fn main() -> std::io::Result<()> {
-    cli::run()
+fn main() {
+    if let Err(err) = cli::run() {
+        eprintln!("{}", err);
+    }
 }

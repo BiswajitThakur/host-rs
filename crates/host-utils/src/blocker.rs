@@ -75,7 +75,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     pub fn rm_allow<T: Iterator<Item = &'a str>>(&mut self, args: T) {
         for i in args {
             if let Some(host) = get_host_from_url_or_host(i) {
-                self.data.remove_allow(&Cow::Borrowed(host));
+                self.data.remove_allow(host);
             } else {
                 self.eprintln_invalid_host_or_url(i);
             }
@@ -94,7 +94,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     pub fn rm_block<T: Iterator<Item = &'a str>>(&mut self, args: T) {
         for i in args {
             if let Some(v) = get_host_from_url_or_host(i) {
-                self.data.remove_block(&Cow::Borrowed(v));
+                self.data.remove_block(v);
             } else {
                 self.eprintln_invalid_host_or_url(i);
             }
@@ -138,18 +138,17 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     pub fn rm_sources<T: Iterator<Item = &'a str>>(&mut self, args: T) {
         for i in args {
             if is_valid_url(i) {
-                let url = Cow::Borrowed(i);
-                self.data.remove_sources(&url);
+                self.data.remove_sources(i);
             }
         }
     }
+    #[allow(clippy::result_large_err)]
     fn download<T: AsRef<str>>(url: T) -> Result<String, ureq::Error> {
         Ok(ureq::get(url.as_ref()).call()?.into_string()?)
     }
     pub fn get_update(&mut self) -> Vec<(String, String, [u8; 32])> {
         let mut v = Vec::with_capacity(self.data.sources.len());
         for (url, hash) in self.data.sources.iter() {
-            // TODO: print update info
             let _ = writeln!(self.stdout, "Checking: {}", url.yellow());
             match Self::download(url) {
                 Ok(s) => {
@@ -158,8 +157,10 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
                         let _ = writeln!(self.stdout, "...Update Available...\n");
                         v.push((s, url.to_string(), new_hash));
                         continue;
+                    } else {
+                        let _ = writeln!(self.stdout, "...Update Not Available...\n");
+                        v.push((s, url.to_string(), *hash));
                     }
-                    let _ = writeln!(self.stdout, "...No Update Available...\n");
                 }
                 Err(e) => {
                     let _ = writeln!(self.stderr, "{e}");
@@ -191,8 +192,19 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
         }
         v
     }
-    pub fn apply_update(&mut self, update: &'a Vec<(String, String, [u8; 32])>, cap: usize) {
-        let _ = self.block.try_reserve(cap);
+    pub fn apply_update(&mut self, update: &'a [(String, String, [u8; 32])]) {
+        let mut est_len = 0;
+        self.block.clear();
+        for (data, _, _) in update.iter() {
+            est_len += data.len();
+        }
+        let _ = self
+            .stdout
+            .write_all(format!(".....{}......\n", "Please Wail".green().bold()).as_bytes());
+        est_len /= 20;
+        if self.block.capacity() < est_len {
+            let _ = self.block.try_reserve(est_len - self.block.capacity());
+        }
         for (data, url, hash) in update.iter() {
             for host in HostScanner::from(data.as_str()) {
                 self.block.insert(Cow::Borrowed(host));
@@ -209,9 +221,13 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     pub fn export<W: io::Write>(&mut self, w: &mut W) -> io::Result<()> {
         self.data.write(w)
     }
+    // W1: Etc Hosts
+    // W2: Data
     pub fn save_1<W1: io::Write, W2: io::Write>(&self, w1: &mut W1, w2: &mut W2) -> io::Result<()> {
         self.save(|| (w1, w2))
     }
+    // W1: Etc Hosts
+    // W2: Data
     pub fn save<W1: io::Write, W2: io::Write, F: FnOnce() -> (W1, W2)>(
         &self,
         f: F,
@@ -227,7 +243,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
             block.remove(i.as_bytes());
         }
         let mut v = Vec::with_capacity(block.len());
-        v.extend(block.into_iter());
+        v.extend(block);
         v.sort();
         let mut redirect = Vec::with_capacity(self.data.redirect.len());
         for i in self.data.redirect.iter() {
@@ -239,15 +255,38 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
         self.data.write(&mut data)?;
         Ok(())
     }
-    pub fn restore_etc_hosts<W: io::Write>(&mut self, w: &mut W) -> io::Result<()> {
-        todo!()
+    pub fn restore_etc_hosts<W: io::Write>(etc_hosts: &str, w: &mut W) -> io::Result<()> {
+        let mut iter = etc_hosts.lines();
+        while let Some(line) = iter.next() {
+            match line {
+                "#host-rs-beg#" => {
+                    for line in iter.by_ref() {
+                        if line == "#host-rs-end#" {
+                            break;
+                        }
+                    }
+                }
+                "#r-host-rs-beg#" => {
+                    for line in iter.by_ref() {
+                        if line == "#r-host-rs-end#" {
+                            break;
+                        }
+                    }
+                }
+                v => {
+                    w.write_all(v.as_bytes())?;
+                    w.write_all(b"\n")?;
+                }
+            }
+        }
+        w.flush()
     }
     pub fn clear_data(&mut self) {
         self.data.clear();
     }
 }
 
-fn write_etc_host<'a, W>(
+fn write_etc_host<W>(
     block: Vec<&[u8]>,
     redirect: Vec<(&[u8], &[u8])>,
     old_etc: &str,
@@ -262,17 +301,17 @@ where
     let r_end = b"#r-host-rs-end#";
     let mut old_etc = old_etc.lines().map(|v| v.as_bytes());
     while let Some(line) = old_etc.next() {
-        match line.as_ref() {
+        match line {
             v if v == block_start => {
-                while let Some(line) = old_etc.next() {
-                    if line.as_ref() == block_end {
+                for line in old_etc.by_ref() {
+                    if line == block_end {
                         break;
                     }
                 }
             }
             v if v == r_start => {
-                while let Some(line) = old_etc.next() {
-                    if line.as_ref() == r_end {
+                for line in old_etc.by_ref() {
+                    if line == r_end {
                         break;
                     }
                 }
@@ -304,17 +343,4 @@ where
     etc_file.write_all(b"\n")?;
     etc_file.flush()?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use std::io;
-
-    use super::{App, UserData};
-
-    #[test]
-    fn test_app_insert_block() {
-        let data = UserData::default();
-        //let app = App::new("", data, io::sink(), io::sink());
-    }
 }

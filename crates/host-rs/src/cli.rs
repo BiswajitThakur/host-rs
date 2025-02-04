@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use std::{
     fs,
     io::{self, BufRead, BufReader, BufWriter, ErrorKind, Read, Write},
@@ -158,6 +160,35 @@ pub fn run() -> io::Result<()> {
     let mut stdout = io::stdout().lock();
     let mut stderr = io::stderr().lock();
 
+    if cli.restore {
+        let etc_str = etc_file_string();
+        let etc = fs::File::create(etc_hosts_path())?;
+        let mut etc = BufWriter::new(etc);
+        App::<io::Sink, io::Sink>::restore_etc_hosts(etc_str.as_str(), &mut etc)?;
+        std::process::exit(0);
+    }
+    if let Some(path) = cli.export {
+        if let Err(err) = export(path) {
+            eprintln!("ERROR: {}", err);
+            eprintln!("Faild To Export.");
+            std::process::exit(1);
+        }
+        stdout.write_all(b"Export Success\n")?;
+        std::process::exit(0);
+    }
+
+    if let Some(path) = cli.import {
+        let file = fs::File::open(path)?;
+        let db = BufReader::new(file);
+        let etc_str = etc_file_string();
+        let mut app = App::new(etc_str.as_str(), Some(db), &mut stdout, &mut stderr)?;
+        let update = app.get_update_fource();
+        app.apply_update(&update);
+        app.save(save)?;
+        println!("Import Success");
+        std::process::exit(0);
+    }
+
     if let Some(cmd) = cli.command.as_ref() {
         match cmd {
             Commands::Update { command } => {
@@ -230,56 +261,52 @@ pub fn run() -> io::Result<()> {
                     if print_redirect(data.unwrap(), &mut stdout).is_err() {
                         ep();
                     }
-                } else if *sources {
-                    if print_sources(data.unwrap(), &mut stdout).is_err() {
-                        ep();
-                    }
+                } else if *sources && print_sources(data.unwrap(), &mut stdout).is_err() {
+                    ep();
                 }
                 std::process::exit(0);
             }
             _ => {}
         }
     }
-    let etc_str = etc_file_string().unwrap();
+    let etc_str = etc_file_string();
     let mut app = App::new(etc_str.as_str(), db_file(), &mut stdout, &mut stderr)?;
     app.add_allow(cli.allow.iter().map(|v| v.as_str()));
     app.add_block(cli.block.iter().map(|v| v.as_str()));
     app.add_redirect(filter_redirect(&cli.redirect).into_iter());
     let (mut app, updates) = main2(app, cli.command.as_ref());
     if let Some(update) = updates.as_ref() {
-        let mut total_len = 0;
-        for (v, _, _) in update {
-            total_len += v.len();
-        }
-        app.apply_update(update, total_len / 20);
+        app.apply_update(update);
     }
-    match app.save(|| {
-        let etc_hosts_file = match fs::File::create(etc_hosts_path()) {
-            Ok(f) => BufWriter::new(f),
-            Err(e) => {
-                eprintln!("{e}");
-                std::process::exit(1);
-            }
-        };
-        let db_file = match fs::File::create(db_path()) {
-            Ok(f) => BufWriter::new(f),
-            Err(e) => {
-                eprintln!("{e}");
-                std::process::exit(1);
-            }
-        };
-        (etc_hosts_file, db_file)
-    }) {
+    match app.save(save) {
         Ok(()) => {}
         Err(e) => writeln!(stderr, "{}", e)?,
     }
     Ok(())
 }
 
+fn save() -> (BufWriter<fs::File>, BufWriter<fs::File>) {
+    let etc_hosts_file = match fs::File::create(etc_hosts_path()) {
+        Ok(f) => BufWriter::new(f),
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
+    let db_file = match fs::File::create(db_path()) {
+        Ok(f) => BufWriter::new(f),
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
+    (etc_hosts_file, db_file)
+}
+
 #[inline(always)]
 fn etc_hosts_path() -> &'static Path {
     if cfg!(debug_assertions) {
-        return Path::new("hosts");
+        Path::new("hosts")
     } else if cfg!(any(
         target_os = "linux",
         target_os = "aix",
@@ -307,29 +334,27 @@ fn etc_hosts_path() -> &'static Path {
         Path::new("/etc/inet/hosts")
     } else {
         eprintln!("ERROR: Unknown OS.");
-        std::process::exit(1);
+        std::process::exit(1)
     }
 }
 
 fn db_path() -> PathBuf {
     if cfg!(debug_assertions) {
         PathBuf::from("db.bin")
+    } else if let Some(path) = dirs::data_dir() {
+        [
+            &path,
+            Path::new(env!("CARGO_PKG_NAME")),
+            Path::new("db.bin"),
+        ]
+        .into_iter()
+        .collect()
     } else {
-        if let Some(path) = dirs::data_dir() {
-            [
-                &path,
-                Path::new(env!("CARGO_PKG_NAME")),
-                Path::new("db.bin"),
-            ]
-            .into_iter()
-            .collect()
-        } else {
-            PathBuf::from("db.bin")
-        }
+        PathBuf::from("db.bin")
     }
 }
 
-fn etc_file_string() -> io::Result<String> {
+fn etc_file_string() -> String {
     let mut hosts_file = match fs::File::open(etc_hosts_path()) {
         Ok(f) => BufReader::new(f),
         Err(e) => {
@@ -341,11 +366,14 @@ fn etc_file_string() -> io::Result<String> {
         }
     };
     let mut s = String::new();
-    hosts_file.read_to_string(&mut s)?;
-    Ok(s)
+    if hosts_file.read_to_string(&mut s).is_err() {
+        eprintln!("Error: Faild to read file: {}", etc_hosts_path().display());
+        std::process::exit(1);
+    }
+    s
 }
 
-fn db_file<'a>() -> Option<BufReader<fs::File>> {
+fn db_file() -> Option<BufReader<fs::File>> {
     let path = db_path();
     match fs::File::open(path) {
         Ok(file) => Some(BufReader::new(file)),
@@ -353,7 +381,7 @@ fn db_file<'a>() -> Option<BufReader<fs::File>> {
     }
 }
 
-fn filter_redirect<'a>(args: &'a Vec<String>) -> Vec<(&'a str, &'a str)> {
+fn filter_redirect(args: &[String]) -> Vec<(&str, &str)> {
     if args.len() % 2 != 0 {
         eprintln!("ERROR: Envalid Arguments");
         std::process::exit(1);
@@ -383,7 +411,7 @@ fn main2<'a, O: io::Write, E: io::Write>(
             } = command;
             app.add_allow(allow.iter().map(|v| v.as_str()));
             app.add_block(block.iter().map(|v| v.as_str()));
-            app.add_redirect(filter_redirect(&redirect).into_iter());
+            app.add_redirect(filter_redirect(redirect).into_iter());
             if !sources.is_empty() {
                 app.add_sources(sources.iter().map(|v| v.as_str()));
                 let updates = app.get_update();
@@ -416,4 +444,14 @@ fn main2<'a, O: io::Write, E: io::Write>(
         _ => {}
     }
     (app, None)
+}
+
+fn export<P: AsRef<Path>>(path: P) -> io::Result<()> {
+    let p = db_path();
+    let file = fs::File::open(p)?;
+    let mut reader = BufReader::new(file);
+    let new_file = fs::File::create_new(path)?;
+    let mut writer = BufWriter::new(new_file);
+    io::copy(&mut reader, &mut writer)?;
+    Ok(())
 }
