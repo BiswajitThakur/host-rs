@@ -8,3 +8,5 @@ tmp*
 /tmp*
 installer_*
 /tests
+hosts
+db.bin
