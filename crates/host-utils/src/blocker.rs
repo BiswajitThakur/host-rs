@@ -144,7 +144,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     }
     #[allow(clippy::result_large_err)]
     fn download<T: AsRef<str>>(url: T) -> Result<String, ureq::Error> {
-        Ok(ureq::get(url.as_ref()).call()?.into_string()?)
+        ureq::get(url.as_ref()).call()?.body_mut().read_to_string()
     }
     pub fn get_update(&mut self) -> Vec<(String, String, [u8; 32])> {
         let mut v = Vec::with_capacity(self.data.sources.len());
@@ -198,9 +198,6 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
         for (data, _, _) in update.iter() {
             est_len += data.len();
         }
-        let _ = self
-            .stdout
-            .write_all(format!(".....{}......\n", "Please Wail".green().bold()).as_bytes());
         est_len /= 20;
         if self.block.capacity() < est_len {
             let _ = self.block.try_reserve(est_len - self.block.capacity());
