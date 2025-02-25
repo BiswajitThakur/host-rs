@@ -202,13 +202,20 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
         if self.block.capacity() < est_len {
             let _ = self.block.try_reserve(est_len - self.block.capacity());
         }
+        let mut update_flag = false;
         for (data, url, hash) in update.iter() {
             for host in HostScanner::from(data.as_str()) {
                 self.block.insert(Cow::Borrowed(host));
             }
             if let Some(h) = self.data.sources.get_mut(&Cow::Borrowed(url.as_str())) {
+                if h != hash {
+                    update_flag = true;
+                }
                 *h = *hash;
             }
+        }
+        if update_flag {
+            let _ = self.stdout.write_all(b".....Update Success.....\n");
         }
     }
 
@@ -220,13 +227,17 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
     }
     // W1: Etc Hosts
     // W2: Data
-    pub fn save_1<W1: io::Write, W2: io::Write>(&self, w1: &mut W1, w2: &mut W2) -> io::Result<()> {
+    pub fn save_1<W1: io::Write, W2: io::Write>(
+        &mut self,
+        w1: &mut W1,
+        w2: &mut W2,
+    ) -> io::Result<()> {
         self.save(|| (w1, w2))
     }
     // W1: Etc Hosts
     // W2: Data
     pub fn save<W1: io::Write, W2: io::Write, F: FnOnce() -> (W1, W2)>(
-        &self,
+        &mut self,
         f: F,
     ) -> io::Result<()> {
         let mut block = HashSet::with_capacity(self.block.len() + self.data.block.len());
@@ -250,6 +261,7 @@ impl<'a, O: io::Write, E: io::Write> App<'a, O, E> {
         let (mut etc, mut data) = f();
         write_etc_host(v, redirect, self.etc_hosts.as_ref(), &mut etc)?;
         self.data.write(&mut data)?;
+        self.stdout.write_all(b".....Saved Changes.....\n")?;
         Ok(())
     }
     pub fn restore_etc_hosts<W: io::Write>(etc_hosts: &str, w: &mut W) -> io::Result<()> {
