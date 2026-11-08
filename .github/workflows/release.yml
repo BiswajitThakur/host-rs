@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v[0-9]+.*
+
+permissions:
+  contents: read
+
+env:
+  BINARY_NAME: fs-share
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Generate Changelog (if missing)
+        run: |
+          if [ ! -f CHANGELOG.md ]; then
+            cargo install git-cliff
+            git cliff -o CHANGELOG.md
+          fi
+
+      - uses: taiki-e/create-gh-release-action@v1
+        with:
+          changelog: CHANGELOG.md
+
+  upload-assets:
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          # Linux
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+
+          # Linux
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+
+          # macOS
+          - target: x86_64-apple-darwin
+            os: macos-latest
+
+          # macOS
+          - target: aarch64-apple-darwin
+            os: macos-latest
+
+          # Windows
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+
+          # Windows
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+
+          # Android
+          - target: aarch64-linux-android
+            os: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      # Android NDK (required)
+      - name: Install Android NDK
+        if: matrix.target == 'aarch64-linux-android'
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Set Android linker
+        if: matrix.target == 'aarch64-linux-android'
+        run: |
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang" >> $GITHUB_ENV
+
+      # Linux ARM cross compile
+      - name: Install cross (Linux ARM)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: cargo install cross
+
+      # Build step (important override)
+      - name: Build
+        run: |
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+        shell: bash
+
+      # Upload binary
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: ${{ env.BINARY_NAME }}
+          target: ${{ matrix.target }}
+          tar: unix
+          zip: windows
